@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Agent artifacts
+CLAUDE.md
+AGENTS.md
+
+# Experiment results (untracked by design)
+results.tsv
+run.log

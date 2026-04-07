@@ -1,0 +1,7 @@
+[project]
+name = "autoexperiment"
+version = "0.1.0"
+description = "Autonomous experiment optimization template"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
