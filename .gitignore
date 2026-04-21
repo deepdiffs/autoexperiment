@@ -12,6 +12,7 @@ dist/
 CLAUDE.md
 AGENTS.md
 
-# Experiment results (untracked by design)
-results.tsv
+# Transient per-run stdout — regenerated on every `uv run experiment.py`.
+# results.tsv and progress.log are untracked during the experiment loop but
+# committed as reference artifacts when a run concludes (see `viz.py`).
 run.log

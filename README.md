@@ -14,6 +14,8 @@ Three files:
 
 The agent runs `experiment.py` within a **fixed time budget**, measures the metric, and keeps or discards the change. Lower or higher is better depending on `METRIC_GOAL` in the harness.
 
+One small helper ships alongside: **`viz.py`** turns a run's `progress.log` into a self-contained `results.html` chart (best-so-far line, per-run scatter colored by status, hover tooltips). Run `uv run viz.py --open` after a run to inspect it.
+
 ## Quick start
 
 ```bash
@@ -56,6 +58,10 @@ Read program.md and let's kick off a new experiment! Let's do the setup first.
 - **Single file to modify.** The agent only touches `experiment.py`. Keeps scope manageable and diffs reviewable.
 - **Fixed time budget.** Every experiment runs for the same duration, making results directly comparable regardless of what the agent changes.
 - **Self-contained.** One file, one metric. No complex configs.
+
+## Sample run
+
+For a worked example, see branch [`autoexperiment/apr21-1100`](../../tree/autoexperiment/apr21-1100) — a 60-run experiment benchmarking `tokens_per_second` of two Gemma models served by `llama.cpp` + `LiteLLM`, with a full commit trail, `FINDINGS.md`, and a generated `results.html`.
 
 ## License
 
