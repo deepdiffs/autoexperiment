@@ -29,7 +29,8 @@ MODEL = "supergemma4-26b"       # one of: "gemma4-26b", "supergemma4-26b"
 PROMPT_TYPE = "qa"              # one of: "summarization", "open_ended", "qa"
 MAX_TOKENS = 1024               # generation length cap (total; includes reasoning)
 NUM_TRIALS = 5                  # timed trials (+ 1 untimed warmup)
-TEMPERATURE = 0.7
+TEMPERATURE = 0.0
+TOP_K = 1                       # greedy fast path (llama.cpp optimizes for k=1)
 
 # Correctness guard — each trial must produce at least this many output tokens
 # (total, including reasoning). Guards against empty/broken responses.
@@ -60,7 +61,7 @@ PROMPTS = {
 # HTTP trial
 # ---------------------------------------------------------------------------
 
-def one_trial(client, url, headers, prompt, model, max_tokens, temperature):
+def one_trial(client, url, headers, prompt, model, max_tokens, temperature, top_k=None):
     """Stream one chat completion and return timing + usage stats.
 
     Tracks first-token time across both `delta.content` and
@@ -75,6 +76,8 @@ def one_trial(client, url, headers, prompt, model, max_tokens, temperature):
         "stream": True,
         "stream_options": {"include_usage": True},
     }
+    if top_k is not None:
+        body["top_k"] = top_k
 
     start = time.perf_counter()
     first_any_token_at = None     # first reasoning OR content token
@@ -203,7 +206,7 @@ print(
 trials = []
 with httpx.Client() as client:
     print("warmup...", flush=True)
-    _ = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE)
+    _ = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE, TOP_K)
 
     for i in range(NUM_TRIALS):
         if timer.remaining() < 5:
@@ -212,7 +215,7 @@ with httpx.Client() as client:
                 flush=True,
             )
             break
-        t = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE)
+        t = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE, TOP_K)
         if t["completion_tokens"] < MIN_COMPLETION_TOKENS:
             raise RuntimeError(
                 f"trial {i + 1} produced only {t['completion_tokens']} completion tokens "
