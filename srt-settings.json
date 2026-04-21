@@ -1,6 +1,6 @@
 {
   "network": {
-    "allowedDomains": ["studio.raptor-tilapia.ts.net"],
+    "allowedDomains": ["localhost", "127.0.0.1"],
     "deniedDomains": [],
     "allowLocalBinding": false
   },
@@ -21,6 +21,8 @@
     "denyWrite": [
       "program.md",
       "harness.py",
+      "pyproject.toml",
+      "uv.lock",
       ".venv/**",
       "srt-settings.json"
     ]

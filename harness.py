@@ -2,20 +2,24 @@
 Experiment harness — fixed configuration and utilities.
 The agent does NOT modify this file.
 
-Customize these settings for your specific experiment before starting the agent.
-
 Usage:
-    # If your experiment needs one-time setup, add it here and run:
-    uv run harness.py
+    uv run harness.py    # verify connectivity and list available models
 """
 
 # ---------------------------------------------------------------------------
 # Configuration (customize these for your experiment)
 # ---------------------------------------------------------------------------
 
-METRIC_NAME = "score"       # name of the primary metric to optimize
-METRIC_GOAL = "minimize"    # "minimize" or "maximize"
-TIME_BUDGET = 300           # experiment time budget in seconds (5 minutes)
+METRIC_NAME = "tokens_per_second"   # end-to-end completion_tokens / total wall time
+METRIC_GOAL = "maximize"
+TIME_BUDGET = 120                   # seconds per run
+
+# llama.cpp server (this Mac Studio). Override with LLAMA_BASE_URL if needed.
+LLAMA_BASE_URL_DEFAULT = "http://localhost:8080/v1"
+
+# The two models under benchmark. These must be loaded on the llama.cpp server.
+MODEL_GEMMA = "gemma-4-26B-A4B-it-UD-Q4_K_M"
+MODEL_SUPERGEMMA = "supergemma4-26b-uncensored-fast-v2-Q4_K_M"
 
 # ---------------------------------------------------------------------------
 # Utilities (imported by experiment.py)
@@ -45,11 +49,11 @@ def print_results(**metrics):
     """Print results in the standard format for the agent to parse.
 
     Usage:
-        print_results(score=0.95, time_seconds=42.3)
+        print_results(tokens_per_second=9.5, time_seconds=42.3)
 
     Prints:
         ---
-        score: 0.950000
+        tokens_per_second: 9.500000
         time_seconds: 42.300000
     """
     print("---")
@@ -61,13 +65,47 @@ def print_results(**metrics):
 
 
 # ---------------------------------------------------------------------------
-# One-time setup (optional — add your data prep, downloads, etc. here)
+# Connectivity check (one-time). Run with: uv run harness.py
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("No setup required. Ready to experiment.")
+    import os
+    import httpx
+
+    base_url = os.environ.get("LLAMA_BASE_URL", LLAMA_BASE_URL_DEFAULT)
+
+    print(f"Metric:      {METRIC_NAME} ({METRIC_GOAL})")
+    print(f"Time budget: {TIME_BUDGET}s")
     print()
-    print(f"  Metric:      {METRIC_NAME} ({METRIC_GOAL})")
-    print(f"  Time budget: {TIME_BUDGET}s")
+
+    print(f"Endpoint: {base_url}")
+    r = httpx.get(f"{base_url.rstrip('/')}/models", timeout=15)
+    r.raise_for_status()
+    entries = r.json().get("data", [])
+    models = sorted(m["id"] for m in entries)
+    # llama.cpp /v1/models also exposes load status under m["status"]["value"]
+    loaded = {m["id"] for m in entries if (m.get("status") or {}).get("value") == "loaded"}
+    print(f"Models at endpoint ({len(models)}):")
+    for m in models:
+        tag = "loaded" if m in loaded else "unloaded"
+        print(f"  - {m} [{tag}]")
     print()
-    print("Run your first experiment with: uv run experiment.py")
+
+    ok = True
+    for required in (MODEL_GEMMA, MODEL_SUPERGEMMA):
+        present = required in models
+        is_loaded = required in loaded
+        ok = ok and present
+        if present and is_loaded:
+            tag = "OK (loaded)"
+        elif present:
+            tag = "present but NOT loaded"
+        else:
+            tag = "MISSING"
+        print(f"  {required}: {tag}")
+
+    if not ok:
+        raise SystemExit(1)
+
+    print()
+    print("Ready. Run the first experiment with: uv run experiment.py")
