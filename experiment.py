@@ -26,7 +26,7 @@ from harness import METRIC_NAME, TIME_BUDGET, Timer, print_results
 # ---------------------------------------------------------------------------
 
 MODEL = "supergemma4-26b"       # one of: "gemma4-26b", "supergemma4-26b"
-PROMPT_TYPE = "open_ended"      # one of: "summarization", "open_ended", "qa"
+PROMPT_TYPE = "summarization"   # one of: "summarization", "open_ended", "qa"
 MAX_TOKENS = 200                # generation length cap (total; includes reasoning)
 NUM_TRIALS = 5                  # timed trials (+ 1 untimed warmup)
 TEMPERATURE = 0.7
