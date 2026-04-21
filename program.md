@@ -1,103 +1,173 @@
-# autoexperiment
+# autoexperiment — llama.cpp tokens/sec benchmark
 
 Autonomous experiment optimization. An AI agent iterates on code, runs experiments, and keeps what works.
 
+## Domain context
+
+You are benchmarking **end-to-end tokens/sec** (`tokens_per_second` = `completion_tokens / total_wall_time`) of two Gemma models served remotely:
+
+- `gemma4-26b`
+- `supergemma4-26b`
+
+They are hosted by a `llama.cpp` server fronted by a `LiteLLM` OpenAI-compatible proxy at the URL in `$LITELLM_BASE_URL`. The backend runs on **Apple Silicon + Metal**. You interact with it exclusively via HTTP — you cannot change server-side config (no SSH, no restart, no llama-server launch flags).
+
+The server is already running with both models loaded. Authentication uses `$LITELLM_MASTER_KEY`, sent as both `x-api-key` and `Authorization: Bearer`.
+
+**Both models are reasoning models.** Each response emits reasoning tokens (reported in `usage.completion_tokens_details.reasoning_tokens`) in addition to visible content. `completion_tokens` covers both. The primary `tokens_per_second` metric is total completion tokens per wall-clock second — this is what a user actually waits for. `decode_tok_s` is also logged but is only meaningful when the proxy doesn't buffer the stream (frequently it buffers tiny completions, in which case `decode_tok_s` will be 0.0 — don't chase that).
+
 ## Setup
 
-To set up a new experiment run, work with the user to:
+1. **Agree on a run tag**: propose a tag that uniquely identifies this run (multiple runs happen per day, so date alone is not enough). Pick **one** of these formats:
+   - `<date>-<HHMM>` — e.g. `apr21-1430`. Always unique, good default.
+   - `<date>-<ordinal>` — e.g. `apr21-3`. Check existing branches with `git branch --list 'autoexperiment/<date>-*'` and increment.
+   - `<date>-<topic>` — e.g. `apr21-maxtok-sweep`. Use when the run has a clear focus.
 
-1. **Agree on a run tag**: propose a tag based on today's date (e.g. `apr6`). The branch `autoexperiment/<tag>` must not already exist — this is a fresh run.
+   Verify the branch does not already exist: `git show-ref --verify --quiet refs/heads/autoexperiment/<tag>` must return non-zero. If it exists, pick a new tag.
 2. **Create the branch**: `git checkout -b autoexperiment/<tag>` from current master.
-3. **Read the in-scope files**: The repo is small. Read these files for full context:
+3. **Read the in-scope files**:
    - `README.md` — repository context.
-   - `harness.py` — fixed configuration (metric name, goal, time budget) and utilities. Do not modify.
-   - `experiment.py` — the file you modify. Your entire experiment lives here.
-4. **Run setup if needed**: If `harness.py` has a setup step, tell the human to run `uv run harness.py`.
-5. **Initialize results.tsv**: Create `results.tsv` with just the header row. The baseline will be recorded after the first run.
-6. **Confirm and go**: Confirm setup looks good.
-
-Once you get confirmation, kick off the experimentation.
+   - `harness.py` — fixed configuration (metric, goal, time budget) and utilities. Do not modify.
+   - `experiment.py` — the file you modify.
+4. **Verify connectivity**: `uv run harness.py` lists the models available at the endpoint. Confirm both `gemma4-26b` and `supergemma4-26b` appear.
+5. **Initialize results.tsv**: create `results.tsv` with just the header row.
+6. **Confirm and go**.
 
 ## Experimentation
 
 Each experiment is run with: `uv run experiment.py`
 
 **What you CAN do:**
-- Modify `experiment.py` — this is the only file you edit. Everything is fair game: algorithm, parameters, approach, implementation, imports, structure.
+- Modify `experiment.py`. Tune `MODEL`, `PROMPT_TYPE`, `MAX_TOKENS`, `NUM_TRIALS`, `TEMPERATURE`, the prompt texts, and add new dimensions to sweep.
 
 **What you CANNOT do:**
-- Modify `harness.py`. It is read-only. It contains the fixed metric configuration and utilities.
-- Install new packages or add dependencies. You can only use what's already in `pyproject.toml`.
+- Modify `harness.py` (read-only).
+- Install new packages or add dependencies. Only what's in `pyproject.toml`.
+- Issue parallel/concurrent requests. Trials must be strictly sequential.
+- Call any endpoint other than `/v1/chat/completions`.
+- Change server-side config. You only control the HTTP request body.
+- Return fewer than 50 completion tokens per trial. The experiment raises on this (invalid run → crash).
 
-**The goal is simple: optimize the metric defined in `harness.py`.** Read `METRIC_NAME` and `METRIC_GOAL` to know what you're optimizing and in which direction. Since the time budget is fixed, you don't need to worry about experiment duration — it's always the same. Everything is fair game as long as the code runs and finishes within the time budget.
+**The goal**: maximize `tokens_per_second` (decode tokens/sec). Read `METRIC_NAME` and `METRIC_GOAL` in `harness.py` to confirm.
 
-**Simplicity criterion**: All else being equal, simpler is better. A small improvement that adds ugly complexity is not worth it. Conversely, removing something and getting equal or better results is a great outcome — that's a simplification win. When evaluating whether to keep a change, weigh the complexity cost against the improvement magnitude.
+**Simplicity criterion**: all else being equal, simpler is better. A small tok/s improvement that adds ugly complexity is not worth it.
 
-**The first run**: Your very first run should always be to establish the baseline, so you will run the experiment as is.
+## Baseline phase
+
+Before exploring, establish **6 baseline runs** — one per (model × prompt_type) cell:
+
+| MODEL             | PROMPT_TYPE    |
+|-------------------|----------------|
+| gemma4-26b        | summarization  |
+| gemma4-26b        | open_ended     |
+| gemma4-26b        | qa             |
+| supergemma4-26b   | summarization  |
+| supergemma4-26b   | open_ended     |
+| supergemma4-26b   | qa             |
+
+The default `experiment.py` is pre-set to `gemma4-26b` + `open_ended`. Run that, then change the two constants and re-run five more times. Record each as its own TSV row with a clear description like `baseline <model> <prompt_type>`. Only after all six baselines are in should you move on to exploration.
+
+## Strategy guidance (after baseline)
+
+**Try:**
+- `MAX_TOKENS` sweeps (128 / 256 / 512 / 1024) — how does decode throughput scale with generation length?
+- Prompt-length sweeps — shorter and longer prompts, to study prefill vs decode separation.
+- Prompt-prefix caching: reuse an identical prefix across all timed trials. llama.cpp's prompt cache should make later trials much faster on prefill — watch whether `prefill_tok_s` jumps between trial 1 and trials 2-5.
+- One variable changed per run, so improvements are attributable.
+- Keep at least 1 warmup + 3 timed trials.
+
+**Avoid:**
+- Concurrency / `asyncio.gather` / threads firing multiple requests at once.
+- Non-chat endpoints (`/v1/completions`, `/v1/embeddings`, custom routes).
+- Any attempt to reconfigure the server.
+- Obviously-bad knobs (e.g. `MAX_TOKENS` absurdly high, extreme temperatures) — don't burn budget confirming the obvious.
+- Changing `harness.py` or adding dependencies.
+
+**Tips:**
+- If trial-to-trial variance exceeds ~20% of the mean, flag it in the description column of `results.tsv`.
+- The backend is Apple Silicon + Metal — your intuitions from CUDA hardware don't necessarily apply.
+- `prefill_tok_s` and `decode_tok_s` are logged separately. A config that helps one may hurt the other — optimize the primary metric but keep an eye on both.
 
 ## Output format
 
-The experiment prints a summary using `print_results()` from the harness:
+`print_results()` emits:
 
 ```
 ---
-score:        0.123456
-time_seconds: 42.300000
+tokens_per_second: 9.345678
+prefill_tok_s: 120.500000
+e2e_tok_s: 8.900000
+ttft_ms: 350.000000
+...
 ```
 
-You can extract the key metric from the log:
+Extract the primary metric with:
 
 ```
-grep "^<METRIC_NAME>:" run.log
+grep "^tokens_per_second:" run.log
 ```
-
-(Replace `<METRIC_NAME>` with the actual metric name from `harness.py`.)
 
 ## Logging results
 
-When an experiment is done, log it to `results.tsv` (tab-separated, NOT comma-separated — commas break in descriptions).
+Log every experiment to `results.tsv` (tab-separated — commas break in descriptions).
 
-The TSV has a header row and 4 columns:
+Header + 4 columns:
 
 ```
 commit	metric_value	status	description
 ```
 
 1. git commit hash (short, 7 chars)
-2. metric value achieved (e.g. 0.123456) — use 0.000000 for crashes
+2. `tokens_per_second` value (0.000000 for crashes)
 3. status: `keep`, `discard`, or `crash`
-4. short text description of what this experiment tried
+4. short text description, e.g. `baseline gemma4-26b open_ended max_tokens=200`
 
 Example:
 
 ```
 commit	metric_value	status	description
-a1b2c3d	0.500000	keep	baseline
-b2c3d4e	0.420000	keep	switch to binary search
-c3d4e5f	0.510000	discard	add random restarts
-d4e5f6g	0.000000	crash	refactor broke imports
+a1b2c3d	9.345000	keep	baseline gemma4-26b open_ended max_tokens=200
+b2c3d4e	10.123000	keep	baseline supergemma4-26b open_ended max_tokens=200
+c3d4e5f	11.500000	keep	max_tokens=512 with supergemma4-26b open_ended
+d4e5f6g	0.000000	crash	dropped stream_options, usage never arrived
 ```
+
+## Progress log (for human monitoring)
+
+Also append one line per completed run to `progress.log` so the human can `tail -f progress.log` in another terminal and see the rolling history without being blind. Format:
+
+```
+[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> metric=<value> status=<keep|discard|crash> | <description>
+```
+
+Example:
+
+```
+[2026-04-21 14:23:01] run=1 commit=a1b2c3d metric=9.345000 status=keep | baseline gemma4-26b open_ended max_tokens=200
+[2026-04-21 14:25:44] run=2 commit=b2c3d4e metric=10.123000 status=keep | baseline supergemma4-26b open_ended max_tokens=200
+[2026-04-21 14:28:10] run=3 commit=0000000 metric=0.000000 status=crash | dropped stream_options, usage never arrived
+```
+
+Do **not** commit `progress.log` — keep it untracked like `results.tsv`. Use UTC or local time consistently. Append with `>>`, never rewrite.
 
 ## The experiment loop
 
-The experiment runs on a dedicated branch (e.g. `autoexperiment/apr6`).
+The experiment runs on a dedicated branch (e.g. `autoexperiment/apr21`).
 
 LOOP FOREVER:
 
-1. Look at the git state: the current branch/commit we're on
-2. Modify `experiment.py` with an experimental idea
-3. git commit
-4. Run the experiment: `uv run experiment.py > run.log 2>&1` (redirect everything — do NOT use tee or let output flood your context)
-5. Read out the results: `grep "^<METRIC_NAME>:" run.log` (use the actual metric name from harness.py)
-6. If the grep output is empty, the run crashed. Run `tail -n 50 run.log` to read the stack trace and attempt a fix. If you can't get things to work after more than a few attempts, give up.
-7. Record the results in the TSV (NOTE: do not commit the results.tsv file, leave it untracked by git)
-8. If the metric improved (check `METRIC_GOAL` in harness.py for direction), you "advance" the branch, keeping the git commit
-9. If the metric is equal or worse, you git reset back to where you started
+1. Look at git state: the current branch/commit.
+2. Modify `experiment.py` with one experimental idea.
+3. `git commit`.
+4. Run: `uv run experiment.py > run.log 2>&1` (redirect everything — do NOT tee).
+5. Read results: `grep "^tokens_per_second:" run.log`.
+6. If grep is empty → run crashed. `tail -n 50 run.log` for the trace. If it's something trivial (typo, missing key), fix and retry. If fundamentally broken, log `crash` and move on.
+7. Append one line to `progress.log` (see "Progress log" section) so the human can tail the rolling history.
+8. Record in `results.tsv` (do NOT commit either file — keep both untracked).
+9. If `tokens_per_second` improved (higher = better), advance: keep the commit.
+10. If equal or worse, `git reset --hard HEAD~1` back.
 
-The idea is that you are a completely autonomous researcher trying things out. If they work, keep. If they don't, discard. And you're advancing the branch so that you can iterate. If you feel like you're getting stuck, you can rewind but do this very sparingly (if ever).
+**Timeout**: each run ≈ `TIME_BUDGET` seconds + overhead. If a run exceeds 2× budget, kill it and treat as failure.
 
-**Timeout**: Each experiment should take roughly `TIME_BUDGET` seconds (+ a few seconds for overhead). If a run exceeds 2x the budget, kill it and treat it as a failure.
+**Crashes**: trivial fixes → fix and re-run; fundamentally broken ideas → log `crash` and move on.
 
-**Crashes**: If a run crashes, use your judgment: if it's something dumb and easy to fix (typo, missing import), fix it and re-run. If the idea is fundamentally broken, log "crash" and move on.
-
-**NEVER STOP**: Once the experiment loop has begun (after the initial setup), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human might be asleep or away and expects you to continue working *indefinitely* until you are manually stopped. You are autonomous. If you run out of ideas, think harder — re-read the code, try combining previous near-misses, try more radical changes. The loop runs until the human interrupts you, period.
+**NEVER STOP**: once the loop begins (after baseline), do NOT pause to ask the human if you should continue. Do NOT ask "should I keep going?" or "is this a good stopping point?". The human expects you to continue *indefinitely* until manually stopped. You are autonomous. If you run out of ideas, think harder — re-read the TSV, combine near-misses, try more radical changes. The loop runs until the human interrupts, period.
