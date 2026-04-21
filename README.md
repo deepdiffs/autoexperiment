@@ -57,6 +57,10 @@ Read program.md and let's kick off a new experiment! Let's do the setup first.
 - **Fixed time budget.** Every experiment runs for the same duration, making results directly comparable regardless of what the agent changes.
 - **Self-contained.** One file, one metric. No complex configs.
 
+## Sandboxing
+
+`srt-settings.json` configures the Anthropic Sandbox Runtime (`srt`) for this experiment. See https://github.com/anthropic-experimental/sandbox-runtime/blob/main/README.md for the tool and full configuration reference.
+
 ## License
 
 MIT

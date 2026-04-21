@@ -1,0 +1,28 @@
+{
+  "network": {
+    "allowedDomains": ["studio.raptor-tilapia.ts.net"],
+    "deniedDomains": [],
+    "allowLocalBinding": false
+  },
+  "filesystem": {
+    "denyRead": ["/Users"],
+    "allowRead": [
+      ".",
+      "~/.cache/uv",
+      "~/.local/share/uv",
+      "~/.gitconfig",
+      "~/.config/git"
+    ],
+    "allowWrite": [
+      ".",
+      "~/.cache/uv",
+      "/tmp"
+    ],
+    "denyWrite": [
+      "program.md",
+      "harness.py",
+      ".venv/**",
+      "srt-settings.json"
+    ]
+  }
+}
