@@ -1,0 +1,61 @@
+commit	metric_value	status	description
+5534e70	78.767774	keep	baseline gemma4-26b open_ended max_tokens=200
+9672400	76.001121	keep	baseline gemma4-26b summarization max_tokens=200
+613ccbc	79.021866	keep	baseline gemma4-26b qa max_tokens=200
+fd4c2e6	85.404363	keep	baseline supergemma4-26b open_ended max_tokens=200
+948f4bd	82.209317	keep	baseline supergemma4-26b summarization max_tokens=200
+01c77cf	85.563857	keep	baseline supergemma4-26b qa max_tokens=200
+a6bf6d7	88.699521	keep	supergemma4-26b qa max_tokens=512
+f742f34	89.867671	keep	supergemma4-26b qa max_tokens=1024
+7da500f	89.167301	discard	max_tokens=2048 (WORSE, decode slows with KV cache)
+5139bf7	89.772099	discard	temperature=0.0 (no improvement, within noise)
+42dfc76	88.895089	discard	max_tokens=1500 (worse, decode drops)
+f1ee6d4	89.136258	discard	max_tokens=1200 (worse, noisier than 1024)
+e05fbb6	90.001430	keep	top_k=1 + temperature=0 (greedy fast path, small gain)
+109045c	89.725358	discard	top_p=1.0 + min_p=0.0 (no gain, within noise)
+8a30b00	89.784163	discard	NUM_TRIALS=8 (exposes run 13's 90.00 as noise)
+cf86f16	90.021660	keep	non-streaming requests (simpler, tiny e2e gain)
+02118e2	89.446294	discard	non-stream max_tokens=2048 (worse, decode drops)
+3ac3290	89.132501	discard	open_ended prompt (non-stream, max=1024, worse)
+766d30e	66.746387	discard	n=2 (server serializes; token count appears under-reported)
+678e3d3	86.878156	discard	summarization prompt (stops at 661 EOS, prefix cache minimal)
+790417f	89.166059	discard	max_tokens=1100 (worse, past peak)
+9997e95	88.725064	discard	max_tokens=960 (worse)
+026d73c	88.418777	discard	max_tokens=1040 (worse, noise pattern)
+e3b7eec	82.441079	discard	gemma4-26b (not super, slower at 82)
+e3c6ccc	88.663598	discard	cache_prompt=true (no effect, default)
+c8c9926	88.390989	discard	resample best config (confirms ~1.6 tok/s noise)
+7005def	88.586057	discard	NUM_TRIALS=3 (median only, worse sample)
+8a6ae3f	88.160198	discard	max_tokens=500 non-stream greedy (worse)
+a4c8924	88.073269	discard	stream mode (server decode dropped to 89.8, env slower)
+9443c98	88.378322	discard	2 warmups (no effect)
+fa65318	88.235763	discard	3s sleep between trials (no effect)
+28f076f	88.035157	discard	add system prompt (no effect)
+b441f16	88.675036	discard	temp=1.0 + top_k=1 (same as greedy, no effect)
+3a9015a	84.354074	discard	samplers=[temperature] (worse, wrong path)
+66ec804	88.375867	discard	NUM_TRIALS=6 (same noise)
+bd14bb1	88.807665	discard	seed=42 (no effect)
+2c3336e	89.061478	discard	max_tokens=800 (better than recent 1024, but below 90.02)
+eea743e	88.936306	discard	max_tokens=700 (slight dip from 800)
+b2189d4	89.005568	discard	max_tokens=850 (similar to 800)
+50ac88e	89.249958	discard	max_tokens=750 (slight improvement, still below 90.02)
+a80fda1	89.334061	discard	shorter qa prompt (similar result)
+9b87bb7	89.362729	discard	max_tokens=720 (similar, still below 90.02)
+d822bb7	89.438522	discard	max_tokens=650 (slight edge)
+de7383d	89.365190	discard	resample best (server not recovered)
+b0960b3	89.682550	discard	max_tokens=680 (89.68)
+1c4eef7	89.627292	discard	max_tokens=620 (89.63)
+60e7e68	88.782133	discard	max_tokens=600
+dd19cab	89.037906	discard	resample (still slow server)
+6c3bf09	88.622769	discard	NUM_TRIALS=7 (tighter mean, worse)
+82ccc29	88.563720	discard	system prompt 'Answer directly.'
+ee8bf18	88.595432	discard	max_tokens=400
+a355f9e	89.180474	discard	max_tokens=900
+1dae9c4	89.393524	discard	qa prompt: water cycle
+0a42a58	88.768275	discard	resample (still below 90.02)
+2170f13	89.660891	discard	max_tokens=870
+57c0f31	88.999900	discard	max_tokens=780
+3047306	89.340675	discard	max_tokens=770
+789ec05	89.252526	discard	max_tokens=830
+f1a60fb	85.528697	discard	max_tokens=890 (server spike down)
+30ca953	89.238290	discard	max_tokens=820

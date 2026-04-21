@@ -1,0 +1,60 @@
+[2026-04-21 11:01:48] run=1 commit=5534e70 metric=78.767774 status=keep | baseline gemma4-26b open_ended max_tokens=200
+[2026-04-21 11:02:18] run=2 commit=9672400 metric=76.001121 status=keep | baseline gemma4-26b summarization max_tokens=200
+[2026-04-21 11:02:50] run=3 commit=613ccbc metric=79.021866 status=keep | baseline gemma4-26b qa max_tokens=200
+[2026-04-21 11:03:17] run=4 commit=fd4c2e6 metric=85.404363 status=keep | baseline supergemma4-26b open_ended max_tokens=200
+[2026-04-21 11:03:45] run=5 commit=948f4bd metric=82.209317 status=keep | baseline supergemma4-26b summarization max_tokens=200
+[2026-04-21 11:04:15] run=6 commit=01c77cf metric=85.563857 status=keep | baseline supergemma4-26b qa max_tokens=200
+[2026-04-21 11:05:33] run=7 commit=a6bf6d7 metric=88.699521 status=keep | supergemma4-26b qa max_tokens=512
+[2026-04-21 11:07:01] run=8 commit=f742f34 metric=89.867671 status=keep | supergemma4-26b qa max_tokens=1024
+[2026-04-21 11:09:13] run=9 commit=7da500f metric=89.167301 status=discard | max_tokens=2048 (WORSE, decode slows with KV cache)
+[2026-04-21 11:10:56] run=10 commit=5139bf7 metric=89.772099 status=discard | temperature=0.0 (no improvement, within noise)
+[2026-04-21 11:14:23] run=11 commit=42dfc76 metric=88.895089 status=discard | max_tokens=1500 (worse, decode drops)
+[2026-04-21 11:16:42] run=12 commit=f1ee6d4 metric=89.136258 status=discard | max_tokens=1200 (worse, noisier than 1024)
+[2026-04-21 11:18:29] run=13 commit=e05fbb6 metric=90.001430 status=keep | top_k=1 + temperature=0 (greedy fast path, small gain)
+[2026-04-21 11:21:19] run=14 commit=109045c metric=89.725358 status=discard | top_p=1.0 + min_p=0.0 (no gain, within noise)
+[2026-04-21 11:24:16] run=15 commit=8a30b00 metric=89.784163 status=discard | NUM_TRIALS=8 (exposes run 13's 90.00 as noise)
+[2026-04-21 11:26:36] run=16 commit=cf86f16 metric=90.021660 status=keep | non-streaming requests (simpler, tiny e2e gain)
+[2026-04-21 11:29:30] run=17 commit=02118e2 metric=89.446294 status=discard | non-stream max_tokens=2048 (worse, decode drops)
+[2026-04-21 11:31:03] run=18 commit=3ac3290 metric=89.132501 status=discard | open_ended prompt (non-stream, max=1024, worse)
+[2026-04-21 11:33:40] run=19 commit=766d30e metric=66.746387 status=discard | n=2 (server serializes; token count appears under-reported)
+[2026-04-21 11:35:12] run=20 commit=678e3d3 metric=86.878156 status=discard | summarization prompt (stops at 661 EOS, prefix cache minimal)
+[2026-04-21 11:37:36] run=21 commit=790417f metric=89.166059 status=discard | max_tokens=1100 (worse, past peak)
+[2026-04-21 11:39:57] run=22 commit=9997e95 metric=88.725064 status=discard | max_tokens=960 (worse)
+[2026-04-21 11:42:06] run=23 commit=026d73c metric=88.418777 status=discard | max_tokens=1040 (worse, noise pattern)
+[2026-04-21 11:44:22] run=24 commit=e3b7eec metric=82.441079 status=discard | gemma4-26b (not super, slower at 82)
+[2026-04-21 11:46:02] run=25 commit=e3c6ccc metric=88.663598 status=discard | cache_prompt=true (no effect, default)
+[2026-04-21 11:47:58] run=26 commit=c8c9926 metric=88.390989 status=discard | resample best config (confirms ~1.6 tok/s noise)
+[2026-04-21 11:49:15] run=27 commit=7005def metric=88.586057 status=discard | NUM_TRIALS=3 (median only, worse sample)
+[2026-04-21 11:50:27] run=28 commit=8a6ae3f metric=88.160198 status=discard | max_tokens=500 non-stream greedy (worse)
+[2026-04-21 11:52:20] run=29 commit=a4c8924 metric=88.073269 status=discard | stream mode (server decode dropped to 89.8, env slower)
+[2026-04-21 11:54:32] run=30 commit=9443c98 metric=88.378322 status=discard | 2 warmups (no effect)
+[2026-04-21 11:56:18] run=31 commit=fa65318 metric=88.235763 status=discard | 3s sleep between trials (no effect)
+[2026-04-21 11:57:56] run=32 commit=28f076f metric=88.035157 status=discard | add system prompt (no effect)
+[2026-04-21 11:59:32] run=33 commit=b441f16 metric=88.675036 status=discard | temp=1.0 + top_k=1 (same as greedy, no effect)
+[2026-04-21 12:01:21] run=34 commit=3a9015a metric=84.354074 status=discard | samplers=[temperature] (worse, wrong path)
+[2026-04-21 12:03:03] run=35 commit=66ec804 metric=88.375867 status=discard | NUM_TRIALS=6 (same noise)
+[2026-04-21 12:04:40] run=36 commit=bd14bb1 metric=88.807665 status=discard | seed=42 (no effect)
+[2026-04-21 12:06:04] run=37 commit=2c3336e metric=89.061478 status=discard | max_tokens=800 (better than recent 1024, but below 90.02)
+[2026-04-21 12:07:13] run=38 commit=eea743e metric=88.936306 status=discard | max_tokens=700 (slight dip from 800)
+[2026-04-21 12:08:31] run=39 commit=b2189d4 metric=89.005568 status=discard | max_tokens=850 (similar to 800)
+[2026-04-21 12:09:39] run=40 commit=50ac88e metric=89.249958 status=discard | max_tokens=750 (slight improvement, still below 90.02)
+[2026-04-21 12:11:07] run=41 commit=a80fda1 metric=89.334061 status=discard | shorter qa prompt (similar result)
+[2026-04-21 12:12:21] run=42 commit=9b87bb7 metric=89.362729 status=discard | max_tokens=720 (similar, still below 90.02)
+[2026-04-21 12:13:24] run=43 commit=d822bb7 metric=89.438522 status=discard | max_tokens=650 (slight edge)
+[2026-04-21 12:14:53] run=44 commit=de7383d metric=89.365190 status=discard | resample best (server not recovered)
+[2026-04-21 12:16:00] run=45 commit=b0960b3 metric=89.682550 status=discard | max_tokens=680 (89.68)
+[2026-04-21 12:17:05] run=46 commit=1c4eef7 metric=89.627292 status=discard | max_tokens=620 (89.63)
+[2026-04-21 12:18:08] run=47 commit=60e7e68 metric=88.782133 status=discard | max_tokens=600
+[2026-04-21 12:19:44] run=48 commit=dd19cab metric=89.037906 status=discard | resample (still slow server)
+[2026-04-21 12:21:37] run=49 commit=6c3bf09 metric=88.622769 status=discard | NUM_TRIALS=7 (tighter mean, worse)
+[2026-04-21 12:23:10] run=50 commit=82ccc29 metric=88.563720 status=discard | system prompt 'Answer directly.'
+[2026-04-21 12:23:58] run=51 commit=ee8bf18 metric=88.595432 status=discard | max_tokens=400
+[2026-04-21 12:25:29] run=52 commit=a355f9e metric=89.180474 status=discard | max_tokens=900
+[2026-04-21 12:27:03] run=53 commit=1dae9c4 metric=89.393524 status=discard | qa prompt: water cycle
+[2026-04-21 12:28:33] run=54 commit=0a42a58 metric=88.768275 status=discard | resample (still below 90.02)
+[2026-04-21 12:29:53] run=55 commit=2170f13 metric=89.660891 status=discard | max_tokens=870
+[2026-04-21 12:31:05] run=56 commit=57c0f31 metric=88.999900 status=discard | max_tokens=780
+[2026-04-21 12:32:16] run=57 commit=3047306 metric=89.340675 status=discard | max_tokens=770
+[2026-04-21 12:33:32] run=58 commit=789ec05 metric=89.252526 status=discard | max_tokens=830
+[2026-04-21 12:34:54] run=59 commit=f1a60fb metric=85.528697 status=discard | max_tokens=890 (server spike down)
+[2026-04-21 12:36:08] run=60 commit=30ca953 metric=89.238290 status=discard | max_tokens=820

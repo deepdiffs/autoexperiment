@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>autoexperiment — tokens/sec results</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    margin: 0;
+    padding: 24px 32px 48px;
+    background: #fafafa;
+    color: #222;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .summary {
+    display: flex; gap: 24px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e5e5e5; border-radius: 6px;
+    padding: 12px 16px; margin-bottom: 16px; font-size: 13px;
+  }
+  .summary b { color: #000; }
+  .chart-wrap {
+    background: #fff; border: 1px solid #e5e5e5; border-radius: 6px;
+    padding: 16px; height: 520px;
+  }
+  table {
+    border-collapse: collapse; width: 100%;
+    background: #fff; margin-top: 16px; font-size: 12px;
+    border: 1px solid #e5e5e5; border-radius: 6px; overflow: hidden;
+  }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }
+  th { background: #f7f7f7; font-weight: 600; }
+  tr.keep td { background: #f6fbf6; }
+  tr.discard td { color: #888; }
+  tr.crash td { background: #fdf3f3; color: #a00; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .dot.keep { background: #2e8b57; }
+  .dot.discard { background: #999; }
+  .dot.crash { background: #d33; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+</style>
+</head>
+<body>
+<h1>autoexperiment — tokens/sec results</h1>
+<div class="sub">60 runs — branch visualization</div>
+
+<div class="summary">
+  <div><b>Runs:</b> 60</div>
+  <div><b>Kept:</b> 10</div>
+  <div><b>Discarded:</b> 50</div>
+  <div><b>Crashes:</b> 0</div>
+  <div><b>Best tokens_per_second:</b> 90.0217 <span style="color:#666">(run 16, <code>cf86f16</code>)</span></div>
+  <div><b>Baseline best:</b> 85.5639</div>
+  <div><b>Lift:</b> +5.21%</div>
+</div>
+
+<div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>#</th><th>status</th><th>metric</th><th>commit</th><th>model</th><th>prompt</th><th>max_tok</th><th>description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="keep"><td>1</td><td><span class="dot keep"></span>keep</td><td>78.7678</td><td><code>5534e70</code></td><td>gemma4-26b</td><td>open_ended</td><td>200</td><td>baseline gemma4-26b open_ended max_tokens=200</td></tr>
+    <tr class="keep"><td>2</td><td><span class="dot keep"></span>keep</td><td>76.0011</td><td><code>9672400</code></td><td>gemma4-26b</td><td>summarization</td><td>200</td><td>baseline gemma4-26b summarization max_tokens=200</td></tr>
+    <tr class="keep"><td>3</td><td><span class="dot keep"></span>keep</td><td>79.0219</td><td><code>613ccbc</code></td><td>gemma4-26b</td><td>qa</td><td>200</td><td>baseline gemma4-26b qa max_tokens=200</td></tr>
+    <tr class="keep"><td>4</td><td><span class="dot keep"></span>keep</td><td>85.4044</td><td><code>fd4c2e6</code></td><td>supergemma4-26b</td><td>open_ended</td><td>200</td><td>baseline supergemma4-26b open_ended max_tokens=200</td></tr>
+    <tr class="keep"><td>5</td><td><span class="dot keep"></span>keep</td><td>82.2093</td><td><code>948f4bd</code></td><td>supergemma4-26b</td><td>summarization</td><td>200</td><td>baseline supergemma4-26b summarization max_tokens=200</td></tr>
+    <tr class="keep"><td>6</td><td><span class="dot keep"></span>keep</td><td>85.5639</td><td><code>01c77cf</code></td><td>supergemma4-26b</td><td>qa</td><td>200</td><td>baseline supergemma4-26b qa max_tokens=200</td></tr>
+    <tr class="keep"><td>7</td><td><span class="dot keep"></span>keep</td><td>88.6995</td><td><code>a6bf6d7</code></td><td>supergemma4-26b</td><td>qa</td><td>512</td><td>supergemma4-26b qa max_tokens=512</td></tr>
+    <tr class="keep"><td>8</td><td><span class="dot keep"></span>keep</td><td>89.8677</td><td><code>f742f34</code></td><td>supergemma4-26b</td><td>qa</td><td>1024</td><td>supergemma4-26b qa max_tokens=1024</td></tr>
+    <tr class="discard"><td>9</td><td><span class="dot discard"></span>discard</td><td>89.1673</td><td><code>7da500f</code></td><td></td><td></td><td>2048</td><td>max_tokens=2048 (WORSE, decode slows with KV cache)</td></tr>
+    <tr class="discard"><td>10</td><td><span class="dot discard"></span>discard</td><td>89.7721</td><td><code>5139bf7</code></td><td></td><td></td><td></td><td>temperature=0.0 (no improvement, within noise)</td></tr>
+    <tr class="discard"><td>11</td><td><span class="dot discard"></span>discard</td><td>88.8951</td><td><code>42dfc76</code></td><td></td><td></td><td>1500</td><td>max_tokens=1500 (worse, decode drops)</td></tr>
+    <tr class="discard"><td>12</td><td><span class="dot discard"></span>discard</td><td>89.1363</td><td><code>f1ee6d4</code></td><td></td><td></td><td>1200</td><td>max_tokens=1200 (worse, noisier than 1024)</td></tr>
+    <tr class="keep"><td>13</td><td><span class="dot keep"></span>keep</td><td>90.0014</td><td><code>e05fbb6</code></td><td></td><td></td><td></td><td>top_k=1 + temperature=0 (greedy fast path, small gain)</td></tr>
+    <tr class="discard"><td>14</td><td><span class="dot discard"></span>discard</td><td>89.7254</td><td><code>109045c</code></td><td></td><td></td><td></td><td>top_p=1.0 + min_p=0.0 (no gain, within noise)</td></tr>
+    <tr class="discard"><td>15</td><td><span class="dot discard"></span>discard</td><td>89.7842</td><td><code>8a30b00</code></td><td></td><td></td><td></td><td>NUM_TRIALS=8 (exposes run 13&#x27;s 90.00 as noise)</td></tr>
+    <tr class="keep"><td>16</td><td><span class="dot keep"></span>keep</td><td>90.0217</td><td><code>cf86f16</code></td><td></td><td></td><td></td><td>non-streaming requests (simpler, tiny e2e gain)</td></tr>
+    <tr class="discard"><td>17</td><td><span class="dot discard"></span>discard</td><td>89.4463</td><td><code>02118e2</code></td><td></td><td></td><td>2048</td><td>non-stream max_tokens=2048 (worse, decode drops)</td></tr>
+    <tr class="discard"><td>18</td><td><span class="dot discard"></span>discard</td><td>89.1325</td><td><code>3ac3290</code></td><td></td><td>open_ended</td><td></td><td>open_ended prompt (non-stream, max=1024, worse)</td></tr>
+    <tr class="discard"><td>19</td><td><span class="dot discard"></span>discard</td><td>66.7464</td><td><code>766d30e</code></td><td></td><td></td><td></td><td>n=2 (server serializes; token count appears under-reported)</td></tr>
+    <tr class="discard"><td>20</td><td><span class="dot discard"></span>discard</td><td>86.8782</td><td><code>678e3d3</code></td><td></td><td>summarization</td><td></td><td>summarization prompt (stops at 661 EOS, prefix cache minimal)</td></tr>
+    <tr class="discard"><td>21</td><td><span class="dot discard"></span>discard</td><td>89.1661</td><td><code>790417f</code></td><td></td><td></td><td>1100</td><td>max_tokens=1100 (worse, past peak)</td></tr>
+    <tr class="discard"><td>22</td><td><span class="dot discard"></span>discard</td><td>88.7251</td><td><code>9997e95</code></td><td></td><td></td><td>960</td><td>max_tokens=960 (worse)</td></tr>
+    <tr class="discard"><td>23</td><td><span class="dot discard"></span>discard</td><td>88.4188</td><td><code>026d73c</code></td><td></td><td></td><td>1040</td><td>max_tokens=1040 (worse, noise pattern)</td></tr>
+    <tr class="discard"><td>24</td><td><span class="dot discard"></span>discard</td><td>82.4411</td><td><code>e3b7eec</code></td><td>gemma4-26b</td><td></td><td></td><td>gemma4-26b (not super, slower at 82)</td></tr>
+    <tr class="discard"><td>25</td><td><span class="dot discard"></span>discard</td><td>88.6636</td><td><code>e3c6ccc</code></td><td></td><td></td><td></td><td>cache_prompt=true (no effect, default)</td></tr>
+    <tr class="discard"><td>26</td><td><span class="dot discard"></span>discard</td><td>88.3910</td><td><code>c8c9926</code></td><td></td><td></td><td></td><td>resample best config (confirms ~1.6 tok/s noise)</td></tr>
+    <tr class="discard"><td>27</td><td><span class="dot discard"></span>discard</td><td>88.5861</td><td><code>7005def</code></td><td></td><td></td><td></td><td>NUM_TRIALS=3 (median only, worse sample)</td></tr>
+    <tr class="discard"><td>28</td><td><span class="dot discard"></span>discard</td><td>88.1602</td><td><code>8a6ae3f</code></td><td></td><td></td><td>500</td><td>max_tokens=500 non-stream greedy (worse)</td></tr>
+    <tr class="discard"><td>29</td><td><span class="dot discard"></span>discard</td><td>88.0733</td><td><code>a4c8924</code></td><td></td><td></td><td></td><td>stream mode (server decode dropped to 89.8, env slower)</td></tr>
+    <tr class="discard"><td>30</td><td><span class="dot discard"></span>discard</td><td>88.3783</td><td><code>9443c98</code></td><td></td><td></td><td></td><td>2 warmups (no effect)</td></tr>
+    <tr class="discard"><td>31</td><td><span class="dot discard"></span>discard</td><td>88.2358</td><td><code>fa65318</code></td><td></td><td></td><td></td><td>3s sleep between trials (no effect)</td></tr>
+    <tr class="discard"><td>32</td><td><span class="dot discard"></span>discard</td><td>88.0352</td><td><code>28f076f</code></td><td></td><td></td><td></td><td>add system prompt (no effect)</td></tr>
+    <tr class="discard"><td>33</td><td><span class="dot discard"></span>discard</td><td>88.6750</td><td><code>b441f16</code></td><td></td><td></td><td></td><td>temp=1.0 + top_k=1 (same as greedy, no effect)</td></tr>
+    <tr class="discard"><td>34</td><td><span class="dot discard"></span>discard</td><td>84.3541</td><td><code>3a9015a</code></td><td></td><td></td><td></td><td>samplers=[temperature] (worse, wrong path)</td></tr>
+    <tr class="discard"><td>35</td><td><span class="dot discard"></span>discard</td><td>88.3759</td><td><code>66ec804</code></td><td></td><td></td><td></td><td>NUM_TRIALS=6 (same noise)</td></tr>
+    <tr class="discard"><td>36</td><td><span class="dot discard"></span>discard</td><td>88.8077</td><td><code>bd14bb1</code></td><td></td><td></td><td></td><td>seed=42 (no effect)</td></tr>
+    <tr class="discard"><td>37</td><td><span class="dot discard"></span>discard</td><td>89.0615</td><td><code>2c3336e</code></td><td></td><td></td><td>800</td><td>max_tokens=800 (better than recent 1024, but below 90.02)</td></tr>
+    <tr class="discard"><td>38</td><td><span class="dot discard"></span>discard</td><td>88.9363</td><td><code>eea743e</code></td><td></td><td></td><td>700</td><td>max_tokens=700 (slight dip from 800)</td></tr>
+    <tr class="discard"><td>39</td><td><span class="dot discard"></span>discard</td><td>89.0056</td><td><code>b2189d4</code></td><td></td><td></td><td>850</td><td>max_tokens=850 (similar to 800)</td></tr>
+    <tr class="discard"><td>40</td><td><span class="dot discard"></span>discard</td><td>89.2500</td><td><code>50ac88e</code></td><td></td><td></td><td>750</td><td>max_tokens=750 (slight improvement, still below 90.02)</td></tr>
+    <tr class="discard"><td>41</td><td><span class="dot discard"></span>discard</td><td>89.3341</td><td><code>a80fda1</code></td><td></td><td>qa</td><td></td><td>shorter qa prompt (similar result)</td></tr>
+    <tr class="discard"><td>42</td><td><span class="dot discard"></span>discard</td><td>89.3627</td><td><code>9b87bb7</code></td><td></td><td></td><td>720</td><td>max_tokens=720 (similar, still below 90.02)</td></tr>
+    <tr class="discard"><td>43</td><td><span class="dot discard"></span>discard</td><td>89.4385</td><td><code>d822bb7</code></td><td></td><td></td><td>650</td><td>max_tokens=650 (slight edge)</td></tr>
+    <tr class="discard"><td>44</td><td><span class="dot discard"></span>discard</td><td>89.3652</td><td><code>de7383d</code></td><td></td><td></td><td></td><td>resample best (server not recovered)</td></tr>
+    <tr class="discard"><td>45</td><td><span class="dot discard"></span>discard</td><td>89.6826</td><td><code>b0960b3</code></td><td></td><td></td><td>680</td><td>max_tokens=680 (89.68)</td></tr>
+    <tr class="discard"><td>46</td><td><span class="dot discard"></span>discard</td><td>89.6273</td><td><code>1c4eef7</code></td><td></td><td></td><td>620</td><td>max_tokens=620 (89.63)</td></tr>
+    <tr class="discard"><td>47</td><td><span class="dot discard"></span>discard</td><td>88.7821</td><td><code>60e7e68</code></td><td></td><td></td><td>600</td><td>max_tokens=600</td></tr>
+    <tr class="discard"><td>48</td><td><span class="dot discard"></span>discard</td><td>89.0379</td><td><code>dd19cab</code></td><td></td><td></td><td></td><td>resample (still slow server)</td></tr>
+    <tr class="discard"><td>49</td><td><span class="dot discard"></span>discard</td><td>88.6228</td><td><code>6c3bf09</code></td><td></td><td></td><td></td><td>NUM_TRIALS=7 (tighter mean, worse)</td></tr>
+    <tr class="discard"><td>50</td><td><span class="dot discard"></span>discard</td><td>88.5637</td><td><code>82ccc29</code></td><td></td><td></td><td></td><td>system prompt &#x27;Answer directly.&#x27;</td></tr>
+    <tr class="discard"><td>51</td><td><span class="dot discard"></span>discard</td><td>88.5954</td><td><code>ee8bf18</code></td><td></td><td></td><td>400</td><td>max_tokens=400</td></tr>
+    <tr class="discard"><td>52</td><td><span class="dot discard"></span>discard</td><td>89.1805</td><td><code>a355f9e</code></td><td></td><td></td><td>900</td><td>max_tokens=900</td></tr>
+    <tr class="discard"><td>53</td><td><span class="dot discard"></span>discard</td><td>89.3935</td><td><code>1dae9c4</code></td><td></td><td>qa</td><td></td><td>qa prompt: water cycle</td></tr>
+    <tr class="discard"><td>54</td><td><span class="dot discard"></span>discard</td><td>88.7683</td><td><code>0a42a58</code></td><td></td><td></td><td></td><td>resample (still below 90.02)</td></tr>
+    <tr class="discard"><td>55</td><td><span class="dot discard"></span>discard</td><td>89.6609</td><td><code>2170f13</code></td><td></td><td></td><td>870</td><td>max_tokens=870</td></tr>
+    <tr class="discard"><td>56</td><td><span class="dot discard"></span>discard</td><td>88.9999</td><td><code>57c0f31</code></td><td></td><td></td><td>780</td><td>max_tokens=780</td></tr>
+    <tr class="discard"><td>57</td><td><span class="dot discard"></span>discard</td><td>89.3407</td><td><code>3047306</code></td><td></td><td></td><td>770</td><td>max_tokens=770</td></tr>
+    <tr class="discard"><td>58</td><td><span class="dot discard"></span>discard</td><td>89.2525</td><td><code>789ec05</code></td><td></td><td></td><td>830</td><td>max_tokens=830</td></tr>
+    <tr class="discard"><td>59</td><td><span class="dot discard"></span>discard</td><td>85.5287</td><td><code>f1a60fb</code></td><td></td><td></td><td>890</td><td>max_tokens=890 (server spike down)</td></tr>
+    <tr class="discard"><td>60</td><td><span class="dot discard"></span>discard</td><td>89.2383</td><td><code>30ca953</code></td><td></td><td></td><td>820</td><td>max_tokens=820</td></tr>
+  </tbody>
+</table>
+
+<script>
+const DATA = {"metric_name": "tokens_per_second", "rows": [{"ts": "2026-04-21 11:01:48", "run": 1, "commit": "5534e70", "metric": 78.767774, "status": "keep", "description": "baseline gemma4-26b open_ended max_tokens=200", "model": "gemma4-26b", "prompt_type": "open_ended", "max_tokens": 200, "baseline": true}, {"ts": "2026-04-21 11:02:18", "run": 2, "commit": "9672400", "metric": 76.001121, "status": "keep", "description": "baseline gemma4-26b summarization max_tokens=200", "model": "gemma4-26b", "prompt_type": "summarization", "max_tokens": 200, "baseline": true}, {"ts": "2026-04-21 11:02:50", "run": 3, "commit": "613ccbc", "metric": 79.021866, "status": "keep", "description": "baseline gemma4-26b qa max_tokens=200", "model": "gemma4-26b", "prompt_type": "qa", "max_tokens": 200, "baseline": true}, {"ts": "2026-04-21 11:03:17", "run": 4, "commit": "fd4c2e6", "metric": 85.404363, "status": "keep", "description": "baseline supergemma4-26b open_ended max_tokens=200", "model": "supergemma4-26b", "prompt_type": "open_ended", "max_tokens": 200, "baseline": true}, {"ts": "2026-04-21 11:03:45", "run": 5, "commit": "948f4bd", "metric": 82.209317, "status": "keep", "description": "baseline supergemma4-26b summarization max_tokens=200", "model": "supergemma4-26b", "prompt_type": "summarization", "max_tokens": 200, "baseline": true}, {"ts": "2026-04-21 11:04:15", "run": 6, "commit": "01c77cf", "metric": 85.563857, "status": "keep", "description": "baseline supergemma4-26b qa max_tokens=200", "model": "supergemma4-26b", "prompt_type": "qa", "max_tokens": 200, "baseline": true}, {"ts": "2026-04-21 11:05:33", "run": 7, "commit": "a6bf6d7", "metric": 88.699521, "status": "keep", "description": "supergemma4-26b qa max_tokens=512", "model": "supergemma4-26b", "prompt_type": "qa", "max_tokens": 512, "baseline": false}, {"ts": "2026-04-21 11:07:01", "run": 8, "commit": "f742f34", "metric": 89.867671, "status": "keep", "description": "supergemma4-26b qa max_tokens=1024", "model": "supergemma4-26b", "prompt_type": "qa", "max_tokens": 1024, "baseline": false}, {"ts": "2026-04-21 11:09:13", "run": 9, "commit": "7da500f", "metric": 89.167301, "status": "discard", "description": "max_tokens=2048 (WORSE, decode slows with KV cache)", "model": "", "prompt_type": "", "max_tokens": 2048, "baseline": false}, {"ts": "2026-04-21 11:10:56", "run": 10, "commit": "5139bf7", "metric": 89.772099, "status": "discard", "description": "temperature=0.0 (no improvement, within noise)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:14:23", "run": 11, "commit": "42dfc76", "metric": 88.895089, "status": "discard", "description": "max_tokens=1500 (worse, decode drops)", "model": "", "prompt_type": "", "max_tokens": 1500, "baseline": false}, {"ts": "2026-04-21 11:16:42", "run": 12, "commit": "f1ee6d4", "metric": 89.136258, "status": "discard", "description": "max_tokens=1200 (worse, noisier than 1024)", "model": "", "prompt_type": "", "max_tokens": 1200, "baseline": false}, {"ts": "2026-04-21 11:18:29", "run": 13, "commit": "e05fbb6", "metric": 90.00143, "status": "keep", "description": "top_k=1 + temperature=0 (greedy fast path, small gain)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:21:19", "run": 14, "commit": "109045c", "metric": 89.725358, "status": "discard", "description": "top_p=1.0 + min_p=0.0 (no gain, within noise)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:24:16", "run": 15, "commit": "8a30b00", "metric": 89.784163, "status": "discard", "description": "NUM_TRIALS=8 (exposes run 13's 90.00 as noise)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:26:36", "run": 16, "commit": "cf86f16", "metric": 90.02166, "status": "keep", "description": "non-streaming requests (simpler, tiny e2e gain)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:29:30", "run": 17, "commit": "02118e2", "metric": 89.446294, "status": "discard", "description": "non-stream max_tokens=2048 (worse, decode drops)", "model": "", "prompt_type": "", "max_tokens": 2048, "baseline": false}, {"ts": "2026-04-21 11:31:03", "run": 18, "commit": "3ac3290", "metric": 89.132501, "status": "discard", "description": "open_ended prompt (non-stream, max=1024, worse)", "model": "", "prompt_type": "open_ended", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:33:40", "run": 19, "commit": "766d30e", "metric": 66.746387, "status": "discard", "description": "n=2 (server serializes; token count appears under-reported)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:35:12", "run": 20, "commit": "678e3d3", "metric": 86.878156, "status": "discard", "description": "summarization prompt (stops at 661 EOS, prefix cache minimal)", "model": "", "prompt_type": "summarization", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:37:36", "run": 21, "commit": "790417f", "metric": 89.166059, "status": "discard", "description": "max_tokens=1100 (worse, past peak)", "model": "", "prompt_type": "", "max_tokens": 1100, "baseline": false}, {"ts": "2026-04-21 11:39:57", "run": 22, "commit": "9997e95", "metric": 88.725064, "status": "discard", "description": "max_tokens=960 (worse)", "model": "", "prompt_type": "", "max_tokens": 960, "baseline": false}, {"ts": "2026-04-21 11:42:06", "run": 23, "commit": "026d73c", "metric": 88.418777, "status": "discard", "description": "max_tokens=1040 (worse, noise pattern)", "model": "", "prompt_type": "", "max_tokens": 1040, "baseline": false}, {"ts": "2026-04-21 11:44:22", "run": 24, "commit": "e3b7eec", "metric": 82.441079, "status": "discard", "description": "gemma4-26b (not super, slower at 82)", "model": "gemma4-26b", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:46:02", "run": 25, "commit": "e3c6ccc", "metric": 88.663598, "status": "discard", "description": "cache_prompt=true (no effect, default)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:47:58", "run": 26, "commit": "c8c9926", "metric": 88.390989, "status": "discard", "description": "resample best config (confirms ~1.6 tok/s noise)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:49:15", "run": 27, "commit": "7005def", "metric": 88.586057, "status": "discard", "description": "NUM_TRIALS=3 (median only, worse sample)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:50:27", "run": 28, "commit": "8a6ae3f", "metric": 88.160198, "status": "discard", "description": "max_tokens=500 non-stream greedy (worse)", "model": "", "prompt_type": "", "max_tokens": 500, "baseline": false}, {"ts": "2026-04-21 11:52:20", "run": 29, "commit": "a4c8924", "metric": 88.073269, "status": "discard", "description": "stream mode (server decode dropped to 89.8, env slower)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:54:32", "run": 30, "commit": "9443c98", "metric": 88.378322, "status": "discard", "description": "2 warmups (no effect)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:56:18", "run": 31, "commit": "fa65318", "metric": 88.235763, "status": "discard", "description": "3s sleep between trials (no effect)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:57:56", "run": 32, "commit": "28f076f", "metric": 88.035157, "status": "discard", "description": "add system prompt (no effect)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 11:59:32", "run": 33, "commit": "b441f16", "metric": 88.675036, "status": "discard", "description": "temp=1.0 + top_k=1 (same as greedy, no effect)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:01:21", "run": 34, "commit": "3a9015a", "metric": 84.354074, "status": "discard", "description": "samplers=[temperature] (worse, wrong path)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:03:03", "run": 35, "commit": "66ec804", "metric": 88.375867, "status": "discard", "description": "NUM_TRIALS=6 (same noise)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:04:40", "run": 36, "commit": "bd14bb1", "metric": 88.807665, "status": "discard", "description": "seed=42 (no effect)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:06:04", "run": 37, "commit": "2c3336e", "metric": 89.061478, "status": "discard", "description": "max_tokens=800 (better than recent 1024, but below 90.02)", "model": "", "prompt_type": "", "max_tokens": 800, "baseline": false}, {"ts": "2026-04-21 12:07:13", "run": 38, "commit": "eea743e", "metric": 88.936306, "status": "discard", "description": "max_tokens=700 (slight dip from 800)", "model": "", "prompt_type": "", "max_tokens": 700, "baseline": false}, {"ts": "2026-04-21 12:08:31", "run": 39, "commit": "b2189d4", "metric": 89.005568, "status": "discard", "description": "max_tokens=850 (similar to 800)", "model": "", "prompt_type": "", "max_tokens": 850, "baseline": false}, {"ts": "2026-04-21 12:09:39", "run": 40, "commit": "50ac88e", "metric": 89.249958, "status": "discard", "description": "max_tokens=750 (slight improvement, still below 90.02)", "model": "", "prompt_type": "", "max_tokens": 750, "baseline": false}, {"ts": "2026-04-21 12:11:07", "run": 41, "commit": "a80fda1", "metric": 89.334061, "status": "discard", "description": "shorter qa prompt (similar result)", "model": "", "prompt_type": "qa", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:12:21", "run": 42, "commit": "9b87bb7", "metric": 89.362729, "status": "discard", "description": "max_tokens=720 (similar, still below 90.02)", "model": "", "prompt_type": "", "max_tokens": 720, "baseline": false}, {"ts": "2026-04-21 12:13:24", "run": 43, "commit": "d822bb7", "metric": 89.438522, "status": "discard", "description": "max_tokens=650 (slight edge)", "model": "", "prompt_type": "", "max_tokens": 650, "baseline": false}, {"ts": "2026-04-21 12:14:53", "run": 44, "commit": "de7383d", "metric": 89.36519, "status": "discard", "description": "resample best (server not recovered)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:16:00", "run": 45, "commit": "b0960b3", "metric": 89.68255, "status": "discard", "description": "max_tokens=680 (89.68)", "model": "", "prompt_type": "", "max_tokens": 680, "baseline": false}, {"ts": "2026-04-21 12:17:05", "run": 46, "commit": "1c4eef7", "metric": 89.627292, "status": "discard", "description": "max_tokens=620 (89.63)", "model": "", "prompt_type": "", "max_tokens": 620, "baseline": false}, {"ts": "2026-04-21 12:18:08", "run": 47, "commit": "60e7e68", "metric": 88.782133, "status": "discard", "description": "max_tokens=600", "model": "", "prompt_type": "", "max_tokens": 600, "baseline": false}, {"ts": "2026-04-21 12:19:44", "run": 48, "commit": "dd19cab", "metric": 89.037906, "status": "discard", "description": "resample (still slow server)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:21:37", "run": 49, "commit": "6c3bf09", "metric": 88.622769, "status": "discard", "description": "NUM_TRIALS=7 (tighter mean, worse)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:23:10", "run": 50, "commit": "82ccc29", "metric": 88.56372, "status": "discard", "description": "system prompt 'Answer directly.'", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:23:58", "run": 51, "commit": "ee8bf18", "metric": 88.595432, "status": "discard", "description": "max_tokens=400", "model": "", "prompt_type": "", "max_tokens": 400, "baseline": false}, {"ts": "2026-04-21 12:25:29", "run": 52, "commit": "a355f9e", "metric": 89.180474, "status": "discard", "description": "max_tokens=900", "model": "", "prompt_type": "", "max_tokens": 900, "baseline": false}, {"ts": "2026-04-21 12:27:03", "run": 53, "commit": "1dae9c4", "metric": 89.393524, "status": "discard", "description": "qa prompt: water cycle", "model": "", "prompt_type": "qa", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:28:33", "run": 54, "commit": "0a42a58", "metric": 88.768275, "status": "discard", "description": "resample (still below 90.02)", "model": "", "prompt_type": "", "max_tokens": null, "baseline": false}, {"ts": "2026-04-21 12:29:53", "run": 55, "commit": "2170f13", "metric": 89.660891, "status": "discard", "description": "max_tokens=870", "model": "", "prompt_type": "", "max_tokens": 870, "baseline": false}, {"ts": "2026-04-21 12:31:05", "run": 56, "commit": "57c0f31", "metric": 88.9999, "status": "discard", "description": "max_tokens=780", "model": "", "prompt_type": "", "max_tokens": 780, "baseline": false}, {"ts": "2026-04-21 12:32:16", "run": 57, "commit": "3047306", "metric": 89.340675, "status": "discard", "description": "max_tokens=770", "model": "", "prompt_type": "", "max_tokens": 770, "baseline": false}, {"ts": "2026-04-21 12:33:32", "run": 58, "commit": "789ec05", "metric": 89.252526, "status": "discard", "description": "max_tokens=830", "model": "", "prompt_type": "", "max_tokens": 830, "baseline": false}, {"ts": "2026-04-21 12:34:54", "run": 59, "commit": "f1a60fb", "metric": 85.528697, "status": "discard", "description": "max_tokens=890 (server spike down)", "model": "", "prompt_type": "", "max_tokens": 890, "baseline": false}, {"ts": "2026-04-21 12:36:08", "run": 60, "commit": "30ca953", "metric": 89.23829, "status": "discard", "description": "max_tokens=820", "model": "", "prompt_type": "", "max_tokens": 820, "baseline": false}], "running_best": [78.767774, 78.767774, 79.021866, 85.404363, 85.404363, 85.563857, 88.699521, 89.867671, 89.867671, 89.867671, 89.867671, 89.867671, 90.00143, 90.00143, 90.00143, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166, 90.02166]};
+
+const keepPts = [];
+const discardPts = [];
+const crashPts = [];
+const bestLine = [];
+
+for (const r of DATA.rows) {
+  const pt = { x: r.run, y: r.metric, meta: r };
+  if (r.status === 'keep') keepPts.push(pt);
+  else if (r.status === 'crash') crashPts.push(pt);
+  else discardPts.push(pt);
+}
+for (let i = 0; i < DATA.rows.length; i++) {
+  const r = DATA.rows[i];
+  const best = DATA.running_best[i];
+  if (best !== null) bestLine.push({ x: r.run, y: best });
+}
+
+const annotations = [];
+// Vertical separator between baseline and exploration
+const lastBaseline = DATA.rows.filter(r => r.baseline).slice(-1)[0];
+if (lastBaseline) annotations.push(lastBaseline.run + 0.5);
+
+const ctx = document.getElementById('chart').getContext('2d');
+new Chart(ctx, {
+  type: 'scatter',
+  data: {
+    datasets: [
+      {
+        label: 'best so far',
+        type: 'line',
+        data: bestLine,
+        borderColor: '#2e8b57',
+        backgroundColor: 'rgba(46,139,87,0.08)',
+        borderWidth: 2,
+        pointRadius: 0,
+        stepped: true,
+        order: 0,
+      },
+      {
+        label: 'keep',
+        data: keepPts,
+        backgroundColor: '#2e8b57',
+        borderColor: '#2e8b57',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        order: 1,
+      },
+      {
+        label: 'discard',
+        data: discardPts,
+        backgroundColor: '#bbbbbb',
+        borderColor: '#999999',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        order: 2,
+      },
+      {
+        label: 'crash',
+        data: crashPts,
+        backgroundColor: '#d33',
+        borderColor: '#a00',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        order: 1,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: true },
+    scales: {
+      x: {
+        type: 'linear',
+        title: { display: true, text: 'run #' },
+        ticks: { stepSize: 5 },
+      },
+      y: {
+        title: { display: true, text: DATA.metric_name + ' (higher is better)' },
+      },
+    },
+    plugins: {
+      legend: { position: 'top' },
+      tooltip: {
+        callbacks: {
+          title: items => {
+            const r = items[0].raw.meta;
+            return r ? `run ${r.run} — ${r.status}` : '';
+          },
+          label: items => {
+            const r = items.raw.meta;
+            if (!r) return `best so far: ${items.raw.y.toFixed(3)}`;
+            const lines = [
+              `${DATA.metric_name}: ${r.metric.toFixed(4)}`,
+              `commit: ${r.commit}`,
+              `time: ${r.ts}`,
+            ];
+            if (r.model) lines.push(`model: ${r.model}`);
+            if (r.prompt_type) lines.push(`prompt: ${r.prompt_type}`);
+            if (r.max_tokens !== null) lines.push(`max_tokens: ${r.max_tokens}`);
+            lines.push(`— ${r.description}`);
+            return lines;
+          }
+        }
+      },
+      annotation: {},
+    },
+  },
+  plugins: [
+    {
+      id: 'baselineDivider',
+      afterDraw(chart) {
+        if (!annotations.length) return;
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        for (const xv of annotations) {
+          const px = x.getPixelForValue(xv);
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(px, top);
+          ctx.lineTo(px, bottom);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(0,0,0,0.45)';
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillText('← baselines | exploration →', px - 80, top + 12);
+          ctx.restore();
+        }
+      }
+    }
+  ]
+});
+</script>
+</body>
+</html>
