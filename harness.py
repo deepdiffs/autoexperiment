@@ -12,14 +12,22 @@ Usage:
 
 METRIC_NAME = "tokens_per_second"   # end-to-end completion_tokens / total wall time
 METRIC_GOAL = "maximize"
-TIME_BUDGET = 120                   # seconds per run
+TIME_BUDGET = 240                   # seconds per run (two models back-to-back per invocation)
+
+# Cap: experiment.py is invoked at most this many times. Each invocation tests
+# both models with the same config, so this yields MAX_RUNS data points per model.
+MAX_RUNS = 100
 
 # llama.cpp server (this Mac Studio). Override with LLAMA_BASE_URL if needed.
 LLAMA_BASE_URL_DEFAULT = "http://localhost:8080/v1"
 
-# The two models under benchmark. These must be loaded on the llama.cpp server.
-MODEL_GEMMA = "gemma-4-26B-A4B-it-UD-Q4_K_M"
-MODEL_SUPERGEMMA = "supergemma4-26b-uncensored-fast-v2-Q4_K_M"
+# The two models compared head-to-head on every run. They must be loaded on the
+# llama.cpp server.
+# The full IDs as exposed by `GET /v1/models`. The BF16 weights are sharded
+# across two GGUF shards; llama.cpp only requires the first shard as the model
+# ID — it discovers the second shard on disk automatically.
+MODEL_QWEN_BF16 = "Qwen3.6-35B-A3B-BF16-00001-of-00002"
+MODEL_QWEN_Q8 = "Qwen3.6-35B-A3B-UD-Q8_K_XL"
 
 # ---------------------------------------------------------------------------
 # Utilities (imported by experiment.py)
@@ -92,7 +100,7 @@ if __name__ == "__main__":
     print()
 
     ok = True
-    for required in (MODEL_GEMMA, MODEL_SUPERGEMMA):
+    for required in (MODEL_QWEN_BF16, MODEL_QWEN_Q8):
         present = required in models
         is_loaded = required in loaded
         ok = ok and present

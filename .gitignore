@@ -15,3 +15,10 @@ AGENTS.md
 # Experiment results (untracked by design)
 results.tsv
 run.log
+progress.log
+results.html
+
+# Node (sandbox runtime)
+node_modules/
+package.json
+package-lock.json
