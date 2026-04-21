@@ -31,6 +31,7 @@ MAX_TOKENS = 1024               # generation length cap (total; includes reasoni
 NUM_TRIALS = 5                  # timed trials (+ 1 untimed warmup)
 TEMPERATURE = 0.0
 TOP_K = 1                       # greedy fast path (llama.cpp optimizes for k=1)
+STREAM = False                  # non-streaming avoids per-chunk SSE framing overhead
 
 # Correctness guard — each trial must produce at least this many output tokens
 # (total, including reasoning). Guards against empty/broken responses.
@@ -61,21 +62,22 @@ PROMPTS = {
 # HTTP trial
 # ---------------------------------------------------------------------------
 
-def one_trial(client, url, headers, prompt, model, max_tokens, temperature, top_k=None):
-    """Stream one chat completion and return timing + usage stats.
+def one_trial(client, url, headers, prompt, model, max_tokens, temperature, top_k=None, stream=True):
+    """Run one chat completion and return timing + usage stats.
 
-    Tracks first-token time across both `delta.content` and
-    `delta.reasoning_content` (reasoning-model extension). Returns
-    end-to-end and (when measurable) decode-only throughput.
+    In streaming mode, also reports TTFT and decode-window throughput.
+    In non-streaming mode, TTFT/decode are reported as 0 (not measurable);
+    the primary e2e metric is always valid.
     """
     body = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "stream": True,
-        "stream_options": {"include_usage": True},
+        "stream": stream,
     }
+    if stream:
+        body["stream_options"] = {"include_usage": True}
     if top_k is not None:
         body["top_k"] = top_k
 
@@ -88,40 +90,52 @@ def one_trial(client, url, headers, prompt, model, max_tokens, temperature, top_
     reasoning_tokens = None
     cached_prompt_tokens = None
 
-    with client.stream("POST", url, headers=headers, json=body, timeout=300) as r:
+    if stream:
+        with client.stream("POST", url, headers=headers, json=body, timeout=300) as r:
+            r.raise_for_status()
+            for line in r.iter_lines():
+                if not line or not line.startswith("data:"):
+                    continue
+                payload = line[5:].strip()
+                if payload == "[DONE]":
+                    break
+                chunk = json.loads(payload)
+
+                choices = chunk.get("choices") or []
+                if choices:
+                    delta = choices[0].get("delta") or {}
+                    saw_any = False
+                    if delta.get("reasoning_content"):
+                        saw_any = True
+                    if delta.get("content"):
+                        saw_any = True
+                        if first_content_at is None:
+                            first_content_at = time.perf_counter()
+                    if saw_any:
+                        now = time.perf_counter()
+                        if first_any_token_at is None:
+                            first_any_token_at = now
+                        last_any_token_at = now
+
+                usage = chunk.get("usage")
+                if usage:
+                    prompt_tokens = usage.get("prompt_tokens")
+                    completion_tokens = usage.get("completion_tokens")
+                    details = usage.get("completion_tokens_details") or {}
+                    reasoning_tokens = details.get("reasoning_tokens")
+                    pt_details = usage.get("prompt_tokens_details") or {}
+                    cached_prompt_tokens = pt_details.get("cached_tokens")
+    else:
+        r = client.post(url, headers=headers, json=body, timeout=300)
         r.raise_for_status()
-        for line in r.iter_lines():
-            if not line or not line.startswith("data:"):
-                continue
-            payload = line[5:].strip()
-            if payload == "[DONE]":
-                break
-            chunk = json.loads(payload)
-
-            choices = chunk.get("choices") or []
-            if choices:
-                delta = choices[0].get("delta") or {}
-                saw_any = False
-                if delta.get("reasoning_content"):
-                    saw_any = True
-                if delta.get("content"):
-                    saw_any = True
-                    if first_content_at is None:
-                        first_content_at = time.perf_counter()
-                if saw_any:
-                    now = time.perf_counter()
-                    if first_any_token_at is None:
-                        first_any_token_at = now
-                    last_any_token_at = now
-
-            usage = chunk.get("usage")
-            if usage:
-                prompt_tokens = usage.get("prompt_tokens")
-                completion_tokens = usage.get("completion_tokens")
-                details = usage.get("completion_tokens_details") or {}
-                reasoning_tokens = details.get("reasoning_tokens")
-                pt_details = usage.get("prompt_tokens_details") or {}
-                cached_prompt_tokens = pt_details.get("cached_tokens")
+        resp = r.json()
+        usage = resp.get("usage") or {}
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        details = usage.get("completion_tokens_details") or {}
+        reasoning_tokens = details.get("reasoning_tokens")
+        pt_details = usage.get("prompt_tokens_details") or {}
+        cached_prompt_tokens = pt_details.get("cached_tokens")
 
     end = time.perf_counter()
     total_s = end - start
@@ -206,7 +220,7 @@ print(
 trials = []
 with httpx.Client() as client:
     print("warmup...", flush=True)
-    _ = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE, TOP_K)
+    _ = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE, TOP_K, STREAM)
 
     for i in range(NUM_TRIALS):
         if timer.remaining() < 5:
@@ -215,7 +229,7 @@ with httpx.Client() as client:
                 flush=True,
             )
             break
-        t = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE, TOP_K)
+        t = one_trial(client, url, headers, prompt, MODEL, MAX_TOKENS, TEMPERATURE, TOP_K, STREAM)
         if t["completion_tokens"] < MIN_COMPLETION_TOKENS:
             raise RuntimeError(
                 f"trial {i + 1} produced only {t['completion_tokens']} completion tokens "
