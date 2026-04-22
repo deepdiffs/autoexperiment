@@ -44,7 +44,7 @@ STREAM = True
 # Extra mlx_lm-specific knobs forwarded into the request body. mlx_lm.server
 # accepts arbitrary extra fields and passes the recognized ones through to its
 # generate path. Set to None to omit the field.
-REPETITION_PENALTY = None        # e.g. 1.05
+REPETITION_PENALTY = 1.05
 REPETITION_CONTEXT_SIZE = None   # e.g. 20
 MIN_P = 0.05                     # tests non-zero min_p filtering overhead
 MIN_TOKENS_TO_KEEP = None        # for sampling
