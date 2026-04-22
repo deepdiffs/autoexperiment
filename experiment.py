@@ -42,12 +42,12 @@ from harness import (
 # the whole point of this experiment is to run each config against both.
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
-PROMPT_TYPE = "open_ended"
+PROMPT_TYPE = "qa_short"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
 TOP_K = None
-STREAM = True
+STREAM = False
 
 # Correctness guard — each trial must produce at least this many output tokens
 # (total, including reasoning). Guards against empty/broken responses.
@@ -64,13 +64,69 @@ SUMMARIZATION_TEXT = (
     "culpa qui officia deserunt mollit anim id est laborum."
 ) * 3
 
+SUMMARIZATION_TEXT_LONG = SUMMARIZATION_TEXT * 10
+SUMMARIZATION_TEXT_SHORT = (
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+    "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+)
+
+CODE_SNIPPET = (
+    "def quicksort(arr):\n"
+    "    if len(arr) <= 1:\n"
+    "        return arr\n"
+    "    pivot = arr[len(arr) // 2]\n"
+    "    left = [x for x in arr if x < pivot]\n"
+    "    middle = [x for x in arr if x == pivot]\n"
+    "    right = [x for x in arr if x > pivot]\n"
+    "    return quicksort(left) + middle + quicksort(right)\n"
+)
+
 PROMPTS = {
     "summarization": (
         "Summarize the following text in three sentences.\n\n"
         + SUMMARIZATION_TEXT
     ),
+    "summarization_short": (
+        "Summarize the following text in one sentence.\n\n"
+        + SUMMARIZATION_TEXT_SHORT
+    ),
+    "summarization_long": (
+        "Summarize the following text in three sentences.\n\n"
+        + SUMMARIZATION_TEXT_LONG
+    ),
     "open_ended": "Write a short story about a robot learning to paint.",
+    "open_ended_long": (
+        "Write a long, detailed short story about a robot named Arti who lives "
+        "alone in an abandoned art studio and slowly teaches itself to paint by "
+        "studying the dusty canvases and tools left behind. Develop the setting, "
+        "the robot's internal monologue, and include specific scenes of failure "
+        "and discovery. End with an ambiguous note about whether art requires a soul."
+    ),
     "qa": "Explain how photosynthesis works, step by step.",
+    "qa_short": "What is photosynthesis?",
+    "qa_long": (
+        "Explain in extensive detail how photosynthesis works, covering the light-dependent "
+        "reactions, the Calvin cycle, the role of chlorophyll a and b, stroma versus thylakoid, "
+        "oxygen evolution at photosystem II, ATP synthesis, and how C3, C4, and CAM plants differ."
+    ),
+    "code": (
+        "Explain what the following Python function does and analyze its time complexity:\n\n"
+        + CODE_SNIPPET
+    ),
+    "code_gen": "Write a Python function that implements Dijkstra's shortest-path algorithm using a heap.",
+    "math": (
+        "Solve the following step by step: "
+        "A train leaves Station A at 60 km/h heading east. Two hours later, another train leaves "
+        "Station A at 90 km/h in the same direction. How many hours after the second train "
+        "departs will it overtake the first?"
+    ),
+    "math_hard": (
+        "Prove that the sum of the first n odd positive integers equals n^2, using mathematical "
+        "induction. Show each step carefully."
+    ),
+    "multilingual_es": "Explica paso a paso cómo funciona la fotosíntesis en español.",
+    "multilingual_zh": "请逐步解释光合作用的工作原理。",
+    "multilingual_fr": "Expliquez étape par étape comment fonctionne la photosynthèse en français.",
 }
 
 
