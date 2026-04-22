@@ -42,7 +42,7 @@ from harness import (
 # the whole point of this experiment is to run each config against both.
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
-PROMPT_TYPE = "code"
+PROMPT_TYPE = "math"
 MAX_TOKENS = 256
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
