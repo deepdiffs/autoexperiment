@@ -39,7 +39,7 @@ NUM_TRIALS = 5
 TEMPERATURE = 1.0
 TOP_P = 0.95
 TOP_K = 20
-STREAM = True
+STREAM = False
 
 # Extra mlx_lm-specific knobs forwarded into the request body. mlx_lm.server
 # accepts arbitrary extra fields and passes the recognized ones through to its
