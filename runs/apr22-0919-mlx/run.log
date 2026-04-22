@@ -1,0 +1,11 @@
+config: models=['unsloth/Qwen3.6-35B-A3B-MLX-8bit', 'unsloth/Qwen3.6-27B-MLX-8bit'] prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 repetition_penalty=1.05 repetition_context_size=20 min_p=0.05
+--- model: unsloth/Qwen3.6-35B-A3B-MLX-8bit ---
+  warmup...
+  trial 1: e2e=72.74 tok/s decode=74.39 tok/s prefill=153.4 tok/s ttft=170ms (content=0ms) out=512 tok in=26 tok (reasoning_chunks=505, content_chunks=0)
+  trial 2: e2e=74.63 tok/s decode=76.29 tok/s prefill=160.1 tok/s ttft=162ms (content=0ms) out=512 tok in=26 tok (reasoning_chunks=506, content_chunks=0)
+  trial 3: e2e=76.29 tok/s decode=78.09 tok/s prefill=155.9 tok/s ttft=167ms (content=0ms) out=512 tok in=26 tok (reasoning_chunks=505, content_chunks=0)
+  trial 4: e2e=77.38 tok/s decode=79.07 tok/s prefill=169.0 tok/s ttft=154ms (content=0ms) out=512 tok in=26 tok (reasoning_chunks=507, content_chunks=0)
+  trial 5: e2e=77.00 tok/s decode=78.87 tok/s prefill=152.4 tok/s ttft=171ms (content=0ms) out=512 tok in=26 tok (reasoning_chunks=503, content_chunks=0)
+--- model: unsloth/Qwen3.6-27B-MLX-8bit ---
+  warmup...
+  trial 1: e2e=19.77 tok/s decode=19.90 tok/s prefill=113.5 tok/s ttft=229ms (content=0ms) out=512 tok in=26 tok (reasoning_chunks=502, content_chunks=0)

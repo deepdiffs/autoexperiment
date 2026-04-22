@@ -1,0 +1,46 @@
+[2026-04-22 09:27:16] run=1 commit=bc7e55f model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.556526 status=keep | prompt_type=qa max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 09:27:16] run=1 commit=bc7e55f model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.297485 status=keep | prompt_type=qa max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 09:31:49] run=2 commit=da9bcd4 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.075713 status=keep | prompt_type=summarization max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 09:31:49] run=2 commit=da9bcd4 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.173915 status=keep | prompt_type=summarization max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 09:46:14] run=3 commit=022e993 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.649107 status=keep | prompt_type=open_ended max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 09:48:48] run=3 commit=022e993 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.252998 status=keep | prompt_type=open_ended max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:01:21] run=4 commit=ff1f3ce model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.794974 status=keep | prompt_type=open_ended max_tokens=1024 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:04:45] run=4 commit=ff1f3ce model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.297553 status=keep | prompt_type=open_ended max_tokens=1024 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:07:28] run=5 commit=ea90513 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.909406 status=keep | prompt_type=open_ended max_tokens=2048 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:09:36] run=5 commit=ea90513 model=unsloth/Qwen3.6-27B-MLX-8bit metric=0.000000 status=crash | prompt_type=open_ended max_tokens=2048 num_trials=5 temperature=0.0 stream=True (reason: 27B at ~20 tok/s ran out of 240s budget after Model A took ~150s)
+[2026-04-22 10:10:18] run=6 commit=c4bca92 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.015147 status=keep | prompt_type=open_ended max_tokens=256 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:11:36] run=6 commit=c4bca92 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.078042 status=keep | prompt_type=open_ended max_tokens=256 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:11:58] run=7 commit=4507639 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=74.454316 status=keep | prompt_type=open_ended max_tokens=128 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:12:39] run=7 commit=4507639 model=unsloth/Qwen3.6-27B-MLX-8bit metric=19.768781 status=keep | prompt_type=open_ended max_tokens=128 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:13:17] run=8 commit=eb66aa5 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=74.938008 status=keep | prompt_type=qa_long max_tokens=128 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:13:59] run=8 commit=eb66aa5 model=unsloth/Qwen3.6-27B-MLX-8bit metric=19.807849 status=keep | prompt_type=qa_long max_tokens=128 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:14:48] run=9 commit=4c24f8b model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.765332 status=keep | prompt_type=qa_long max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:17:22] run=9 commit=4c24f8b model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.236890 status=keep | prompt_type=qa_long max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:18:10] run=10 commit=61347ad model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.240167 status=keep | prompt_type=qa_short max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:20:45] run=10 commit=61347ad model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.180112 status=keep | prompt_type=qa_short max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:21:35] run=11 commit=edd57fc model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=77.767764 status=keep | prompt_type=summarization_long max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:24:19] run=11 commit=edd57fc model=unsloth/Qwen3.6-27B-MLX-8bit metric=19.946519 status=keep | prompt_type=summarization_long max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:25:28] run=12 commit=0f27aae model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.892061 status=keep | prompt_type=code max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:28:52] run=12 commit=0f27aae model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=80.490998 status=keep | prompt_type=code max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:31:27] run=12 commit=0f27aae model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.213154 status=keep | prompt_type=code max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:32:15] run=13 commit=1063a68 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.596024 status=keep | prompt_type=math max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:34:50] run=13 commit=1063a68 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.244801 status=keep | prompt_type=math max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:35:37] run=14 commit=3b10ce2 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.439729 status=keep | prompt_type=multilingual_zh max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:38:11] run=14 commit=3b10ce2 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.203074 status=keep | prompt_type=multilingual_zh max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:38:59] run=15 commit=cc21269 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.565319 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:41:33] run=15 commit=cc21269 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.196919 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=0.0 stream=True
+[2026-04-22 10:42:25] run=16 commit=507c45d model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.297938 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=0.6 stream=True
+[2026-04-22 10:44:59] run=16 commit=507c45d model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.200785 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=0.6 stream=True
+[2026-04-22 10:45:47] run=17 commit=8612332 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=79.521328 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True
+[2026-04-22 10:48:22] run=17 commit=8612332 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.193735 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True
+[2026-04-22 10:49:09] run=18 commit=10db21e model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.986240 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95
+[2026-04-22 10:51:45] run=18 commit=10db21e model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.074886 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95
+[2026-04-22 10:52:35] run=19 commit=2c0efb7 model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.631946 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20
+[2026-04-22 10:55:11] run=19 commit=2c0efb7 model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.007335 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20
+[2026-04-22 10:55:59] run=20 commit=aa6b36f model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.687610 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 min_p=0.0
+[2026-04-22 10:58:35] run=20 commit=aa6b36f model=unsloth/Qwen3.6-27B-MLX-8bit metric=20.027290 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 min_p=0.0
+[2026-04-22 10:59:24] run=21 commit=08adedc model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=78.221479 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 min_p=0.05
+[2026-04-22 10:59:57] run=21 commit=08adedc model=unsloth/Qwen3.6-27B-MLX-8bit metric=0.000000 status=crash | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 min_p=0.05 (reason: process SIGTERMed during 27B warmup; transient)
+[2026-04-22 11:00:48] run=22 commit=bac8b4a model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=80.497168 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 repetition_penalty=1.05 min_p=0.05
+[2026-04-22 11:03:30] run=22 commit=bac8b4a model=unsloth/Qwen3.6-27B-MLX-8bit metric=19.794051 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 repetition_penalty=1.05 min_p=0.05
+[2026-04-22 11:04:26] run=23 commit=0476b9e model=unsloth/Qwen3.6-35B-A3B-MLX-8bit metric=75.973314 status=keep | prompt_type=code_gen max_tokens=512 num_trials=5 temperature=1.0 stream=True top_p=0.95 top_k=20 repetition_penalty=1.05 repetition_context_size=20 min_p=0.05
