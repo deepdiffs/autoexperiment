@@ -42,12 +42,12 @@ from harness import (
 # the whole point of this experiment is to run each config against both.
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
-PROMPT_TYPE = "qa"
-MAX_TOKENS = 1024
-NUM_TRIALS = 3
-TEMPERATURE = 0.0
+PROMPT_TYPE = "code_gen"
+MAX_TOKENS = 512
+NUM_TRIALS = 5
+TEMPERATURE = 0.7
 TOP_K = None
-STREAM = True
+STREAM = False
 
 # Correctness guard — each trial must produce at least this many output tokens
 # (total, including reasoning). Guards against empty/broken responses.
