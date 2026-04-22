@@ -38,7 +38,7 @@ MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 1.0
 TOP_P = 0.95
-TOP_K = None
+TOP_K = 20
 STREAM = True
 
 # Extra mlx_lm-specific knobs forwarded into the request body. mlx_lm.server
