@@ -43,7 +43,7 @@ from harness import (
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
 PROMPT_TYPE = "open_ended"
-MAX_TOKENS = 128
+MAX_TOKENS = 256
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
 TOP_K = None                    # rely on temp=0 greedy
