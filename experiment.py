@@ -33,7 +33,7 @@ from harness import (
 # Configuration — the agent tunes these.
 # ---------------------------------------------------------------------------
 
-PROMPT_TYPE = "qa_short"
+PROMPT_TYPE = "summarization_long"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
