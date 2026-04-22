@@ -43,8 +43,8 @@ from harness import (
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
 PROMPT_TYPE = "summarization"
-MAX_TOKENS = 1024
-NUM_TRIALS = 3
+MAX_TOKENS = 2048
+NUM_TRIALS = 2
 TEMPERATURE = 0.0
 TOP_K = None                    # rely on temp=0 greedy
 STREAM = False                  # non-streaming: 1-shot JSON, no SSE overhead
