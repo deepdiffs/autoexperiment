@@ -60,7 +60,12 @@ MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
 TOP_K = None
-STREAM = False
+
+# Observe BOTH streaming modes per invocation. Non-streaming measures only
+# end-to-end wall-clock throughput (ttft and decode_tok_s are unobservable and
+# fall back to totals). Streaming additionally yields real ttft and decode
+# tok/s. Running both per config lets us quantify any streaming overhead.
+STREAM_MODES = [True, False]
 
 # Correctness guard — each trial must produce at least this many output tokens
 # (total, including reasoning). Guards against empty/broken responses.
@@ -267,30 +272,31 @@ def trim_mean(xs):
     return statistics.mean(sorted(xs)[1:-1])
 
 
-def run_model(client, url, headers, prompt, model, timer):
-    """Run warmup + NUM_TRIALS timed trials against a single model.
+def run_model(client, url, headers, prompt, model, timer, stream):
+    """Run warmup + NUM_TRIALS timed trials against a single model+stream combo.
 
     Returns the aggregated per-model result dict (or None if time ran out
     before any trial completed)."""
-    print(f"[{model}] warmup...", flush=True)
-    _ = one_trial(client, url, headers, prompt, model, MAX_TOKENS, TEMPERATURE, TOP_K, STREAM)
+    tag = f"{model}|{'stream' if stream else 'nostream'}"
+    print(f"[{tag}] warmup...", flush=True)
+    _ = one_trial(client, url, headers, prompt, model, MAX_TOKENS, TEMPERATURE, TOP_K, stream)
 
     trials = []
     for i in range(NUM_TRIALS):
         if timer.remaining() < 5:
             print(
-                f"[{model}] time budget nearly exhausted after {i} trials; stopping early",
+                f"[{tag}] time budget nearly exhausted after {i} trials; stopping early",
                 flush=True,
             )
             break
-        t = one_trial(client, url, headers, prompt, model, MAX_TOKENS, TEMPERATURE, TOP_K, STREAM)
+        t = one_trial(client, url, headers, prompt, model, MAX_TOKENS, TEMPERATURE, TOP_K, stream)
         if t["completion_tokens"] < MIN_COMPLETION_TOKENS:
             raise RuntimeError(
-                f"[{model}] trial {i + 1} produced only {t['completion_tokens']} completion tokens "
+                f"[{tag}] trial {i + 1} produced only {t['completion_tokens']} completion tokens "
                 f"(< {MIN_COMPLETION_TOKENS}); invalid run"
             )
         print(
-            f"[{model}]  trial {i + 1}: e2e={t['e2e_tok_s']:.2f} tok/s "
+            f"[{tag}]  trial {i + 1}: e2e={t['e2e_tok_s']:.2f} tok/s "
             f"decode={t['decode_tok_s']:.2f} tok/s "
             f"ttft={t['ttft_ms']:.0f}ms "
             f"total={t['completion_tokens']} tok "
@@ -304,6 +310,7 @@ def run_model(client, url, headers, prompt, model, timer):
 
     return {
         "model": model,
+        "stream": stream,
         "e2e_tok_s": trim_mean([t["e2e_tok_s"] for t in trials]),
         "decode_tok_s": trim_mean([t["decode_tok_s"] for t in trials]),
         "prefill_tok_s": trim_mean([t["prefill_tok_s"] for t in trials]),
@@ -332,24 +339,31 @@ prompt = PROMPTS[PROMPT_TYPE]
 
 print(
     f"config: models={MODELS} prompt_type={PROMPT_TYPE} "
-    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE}",
+    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE} "
+    f"stream_modes={STREAM_MODES}",
     flush=True,
 )
 
 aggregates = []
 with httpx.Client(trust_env=False) as client:
-    for model in MODELS:
-        agg = run_model(client, url, headers, prompt, model, timer)
-        if agg is None:
-            raise RuntimeError(f"no timed trials completed for model {model}")
-        aggregates.append(agg)
+    for stream_mode in STREAM_MODES:
+        for model in MODELS:
+            agg = run_model(client, url, headers, prompt, model, timer, stream_mode)
+            if agg is None:
+                raise RuntimeError(
+                    f"no timed trials completed for model {model} stream={stream_mode}"
+                )
+            aggregates.append(agg)
 
 # ---------------------------------------------------------------------------
-# Results — one block per model. The agent parses these separately and writes
-# one row to results.tsv per model.
+# Results — one block per (model, stream_mode). The agent parses each block
+# and writes one row to results.tsv per block. We encode stream mode into the
+# model label via a "|stream" / "|nostream" suffix so it becomes a distinct
+# row in results.tsv without needing a schema change.
 # ---------------------------------------------------------------------------
 
 for agg in aggregates:
+    label = f"{agg['model']}|{'stream' if agg['stream'] else 'nostream'}"
     print_results(**{
         METRIC_NAME: agg["e2e_tok_s"],
         "decode_tok_s": agg["decode_tok_s"],
@@ -362,14 +376,16 @@ for agg in aggregates:
         "reasoning_tokens_avg": agg["reasoning_tokens_avg"],
         "content_tokens_avg": agg["content_tokens_avg"],
         "trials_completed": agg["trials_completed"],
-        "model": agg["model"],
+        "model": label,
+        "stream": agg["stream"],
         "prompt_type": PROMPT_TYPE,
         "max_tokens": MAX_TOKENS,
     })
 
-# Easy-to-grep summary: one RESULT line per model.
+# Easy-to-grep summary: one RESULT line per (model, stream_mode).
 print()
 for agg in aggregates:
-    print(f"RESULT model={agg['model']} {METRIC_NAME}={agg['e2e_tok_s']:.6f}")
+    label = f"{agg['model']}|{'stream' if agg['stream'] else 'nostream'}"
+    print(f"RESULT model={label} {METRIC_NAME}={agg['e2e_tok_s']:.6f}")
 
 print(f"time_seconds: {timer.elapsed():.6f}")

@@ -12,7 +12,7 @@ Usage:
 
 METRIC_NAME = "tokens_per_second"   # end-to-end completion_tokens / total wall time
 METRIC_GOAL = "maximize"
-TIME_BUDGET = 600                   # seconds per run (four models back-to-back per invocation)
+TIME_BUDGET = 1800                  # seconds per run (four models x two stream modes per invocation)
 
 # Cap: experiment.py is invoked at most this many times. Each invocation tests
 # all four models with the same config, so this yields MAX_RUNS data points per model.
