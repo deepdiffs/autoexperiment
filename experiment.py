@@ -34,7 +34,7 @@ from harness import (
 # ---------------------------------------------------------------------------
 
 PROMPT_TYPE = "open_ended"
-MAX_TOKENS = 512
+MAX_TOKENS = 1024
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
 TOP_P = None
