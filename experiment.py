@@ -45,8 +45,8 @@ MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 PROMPT_TYPE = "qa"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
-TEMPERATURE = 0.7
-TOP_K = 40
+TEMPERATURE = 1.0
+TOP_K = 1
 STREAM = False                  # non-streaming: 1-shot JSON, no SSE overhead
 
 # Correctness guard — each trial must produce at least this many output tokens
