@@ -147,53 +147,54 @@ Each `RESULT` line has `model=<name>` and `tokens_per_second=<value>`. Parse all
 
 Log every experiment to `results.tsv` (tab-separated — commas break in descriptions).
 
-Header + 4 columns (unchanged — model name lives in the description for both ease-of-reading and viz.py compatibility):
+Header + 5 columns:
 
 ```
-commit	metric_value	status	description
+commit	model	metric_value	status	description
 ```
 
 1. git commit hash (short, 7 chars) — same commit for all four rows of a single invocation.
-2. `tokens_per_second` value (0.000000 for crashes).
-3. status: `keep` for any valid measurement, `crash` for failures. **Do not use `discard`** — this is a comparison experiment, not an optimization.
-4. short text description. **Must begin with the full model name** so downstream tools can identify the row, e.g. `qwen3.6-27b@q8_k_xl baseline qa`, `qwen3.6-35b-a3b-mlx max_tokens=1024 open_ended`.
+2. full model ID exactly as it appears in `MODELS` (e.g. `qwen3.6-27b@q8_k_xl`). Use an empty string or `-` for `crash` rows where no specific model is implicated.
+3. `tokens_per_second` value (0.000000 for crashes).
+4. status: `keep` for any valid measurement, `crash` for failures. **Do not use `discard`** — this is a comparison experiment, not an optimization.
+5. short text description of the config / what was varied, e.g. `baseline qa`, `max_tokens=1024 open_ended`, `stream=True temp=0.7`. No need to repeat the model name here; it's already in the `model` column.
 
 Each `experiment.py` invocation appends **four consecutive rows** in canonical order, all sharing the same commit hash.
 
 Example:
 
 ```
-commit	metric_value	status	description
-a1b2c3d	38.100000	keep	qwen3.6-27b@q8_k_xl baseline qa
-a1b2c3d	55.400000	keep	qwen3.6-27b-mlx baseline qa
-a1b2c3d	19.800000	keep	qwen3.6-35b-a3b@q8_k_xl baseline qa
-a1b2c3d	41.200000	keep	qwen3.6-35b-a3b-mlx baseline qa
-b2c3d4e	36.200000	keep	qwen3.6-27b@q8_k_xl baseline summarization
-b2c3d4e	52.800000	keep	qwen3.6-27b-mlx baseline summarization
-b2c3d4e	18.400000	keep	qwen3.6-35b-a3b@q8_k_xl baseline summarization
-b2c3d4e	39.600000	keep	qwen3.6-35b-a3b-mlx baseline summarization
-c3d4e5f	0.000000	crash	bad request body, 400 from server (all models)
+commit	model	metric_value	status	description
+a1b2c3d	qwen3.6-27b@q8_k_xl	38.100000	keep	baseline qa
+a1b2c3d	qwen3.6-27b-mlx	55.400000	keep	baseline qa
+a1b2c3d	qwen3.6-35b-a3b@q8_k_xl	19.800000	keep	baseline qa
+a1b2c3d	qwen3.6-35b-a3b-mlx	41.200000	keep	baseline qa
+b2c3d4e	qwen3.6-27b@q8_k_xl	36.200000	keep	baseline summarization
+b2c3d4e	qwen3.6-27b-mlx	52.800000	keep	baseline summarization
+b2c3d4e	qwen3.6-35b-a3b@q8_k_xl	18.400000	keep	baseline summarization
+b2c3d4e	qwen3.6-35b-a3b-mlx	39.600000	keep	baseline summarization
+c3d4e5f	-	0.000000	crash	bad request body, 400 from server (all models)
 ```
 
-If the invocation crashes before any model produces a result, log a single `crash` row with no model prefix. If some models succeed and others crash, log the success rows for those that worked and a `crash` row for each that didn't, all at the same commit.
+If the invocation crashes before any model produces a result, log a single `crash` row with `-` in the model column. If some models succeed and others crash, log the success rows for those that worked and a `crash` row (with the specific model ID) for each that didn't, all at the same commit.
 
 ## Progress log (for human monitoring)
 
 Also append one line **per model result** (so four lines per invocation) to `progress.log` so the human can `tail -f progress.log` in another terminal. Format:
 
 ```
-[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> metric=<value> status=<keep|crash> | <description>
+[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> model=<full-id> metric=<value> status=<keep|crash> | <description>
 ```
 
-`run` is incremented once per *row* (four rows per invocation → four consecutive run numbers per invocation). `description` must start with the model name so `viz.py` can categorize.
+`run` is incremented once per *row* (four rows per invocation → four consecutive run numbers per invocation).
 
 Example:
 
 ```
-[2026-04-22 14:23:01] run=1 commit=a1b2c3d metric=38.100000 status=keep | qwen3.6-27b@q8_k_xl baseline qa
-[2026-04-22 14:23:01] run=2 commit=a1b2c3d metric=55.400000 status=keep | qwen3.6-27b-mlx baseline qa
-[2026-04-22 14:23:01] run=3 commit=a1b2c3d metric=19.800000 status=keep | qwen3.6-35b-a3b@q8_k_xl baseline qa
-[2026-04-22 14:23:01] run=4 commit=a1b2c3d metric=41.200000 status=keep | qwen3.6-35b-a3b-mlx baseline qa
+[2026-04-22 14:23:01] run=1 commit=a1b2c3d model=qwen3.6-27b@q8_k_xl metric=38.100000 status=keep | baseline qa
+[2026-04-22 14:23:01] run=2 commit=a1b2c3d model=qwen3.6-27b-mlx metric=55.400000 status=keep | baseline qa
+[2026-04-22 14:23:01] run=3 commit=a1b2c3d model=qwen3.6-35b-a3b@q8_k_xl metric=19.800000 status=keep | baseline qa
+[2026-04-22 14:23:01] run=4 commit=a1b2c3d model=qwen3.6-35b-a3b-mlx metric=41.200000 status=keep | baseline qa
 ```
 
 Do **not** commit `progress.log` — keep it untracked like `results.tsv`. Use UTC or local time consistently. Append with `>>`, never rewrite.
