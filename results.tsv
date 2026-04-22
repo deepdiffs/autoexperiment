@@ -1,0 +1,200 @@
+commit	metric_value	status	description
+0efecad	60.577483	keep	qwen3.6-35b-bf16 baseline qa
+0efecad	74.604462	keep	qwen3.6-35b-q8 baseline qa
+4f28e34	61.206978	keep	qwen3.6-35b-bf16 baseline summarization
+4f28e34	75.240106	keep	qwen3.6-35b-q8 baseline summarization
+6674b60	60.758392	keep	qwen3.6-35b-bf16 baseline open_ended
+6674b60	74.500536	keep	qwen3.6-35b-q8 baseline open_ended
+d2e3d7a	58.839897	keep	qwen3.6-35b-bf16 max_tokens=128 qa
+d2e3d7a	72.300045	keep	qwen3.6-35b-q8 max_tokens=128 qa
+5e64394	59.945835	keep	qwen3.6-35b-bf16 max_tokens=256 qa
+5e64394	73.893967	keep	qwen3.6-35b-q8 max_tokens=256 qa
+b7a389f	60.934222	keep	qwen3.6-35b-bf16 max_tokens=1024 qa
+b7a389f	75.051808	keep	qwen3.6-35b-q8 max_tokens=1024 qa
+3a5f925	60.674934	keep	qwen3.6-35b-bf16 max_tokens=2048 qa
+3a5f925	74.780000	keep	qwen3.6-35b-q8 max_tokens=2048 qa
+ddeaeba	60.154409	keep	qwen3.6-35b-bf16 max_tokens=128 summarization
+ddeaeba	73.989765	keep	qwen3.6-35b-q8 max_tokens=128 summarization
+b4460d0	60.845798	keep	qwen3.6-35b-bf16 max_tokens=256 summarization
+b4460d0	74.845250	keep	qwen3.6-35b-q8 max_tokens=256 summarization
+80c3a8f	61.040537	keep	qwen3.6-35b-bf16 max_tokens=1024 summarization
+80c3a8f	75.139089	keep	qwen3.6-35b-q8 max_tokens=1024 summarization
+f3698b2	61.186071	keep	qwen3.6-35b-bf16 max_tokens=2048 summarization
+f3698b2	74.911922	keep	qwen3.6-35b-q8 max_tokens=2048 summarization
+877ec55	58.961749	keep	qwen3.6-35b-bf16 max_tokens=128 open_ended
+877ec55	72.064438	keep	qwen3.6-35b-q8 max_tokens=128 open_ended
+5ab981d	59.886734	keep	qwen3.6-35b-bf16 max_tokens=256 open_ended
+5ab981d	73.721564	keep	qwen3.6-35b-q8 max_tokens=256 open_ended
+86e5cbc	60.635749	keep	qwen3.6-35b-bf16 max_tokens=1024 open_ended
+86e5cbc	75.019217	keep	qwen3.6-35b-q8 max_tokens=1024 open_ended
+f4fbeb7	60.823154	keep	qwen3.6-35b-bf16 max_tokens=2048 open_ended
+f4fbeb7	74.903438	keep	qwen3.6-35b-q8 max_tokens=2048 open_ended
+10e21c8	60.428018	keep	qwen3.6-35b-bf16 temperature=0.7 qa
+10e21c8	74.631752	keep	qwen3.6-35b-q8 temperature=0.7 qa
+14906f2	60.630060	keep	qwen3.6-35b-bf16 temperature=1.0 qa
+14906f2	74.574235	keep	qwen3.6-35b-q8 temperature=1.0 qa
+edf06b7	60.434862	keep	qwen3.6-35b-bf16 temperature=0.7 top_k=40 qa
+edf06b7	74.377500	keep	qwen3.6-35b-q8 temperature=0.7 top_k=40 qa
+f292347	60.369903	keep	qwen3.6-35b-bf16 temperature=1.0 top_k=1 qa (greedy via top_k)
+f292347	74.253635	keep	qwen3.6-35b-q8 temperature=1.0 top_k=1 qa (greedy via top_k)
+6a97034	60.563358	keep	qwen3.6-35b-bf16 temperature=2.0 qa (extreme)
+6a97034	74.654455	keep	qwen3.6-35b-q8 temperature=2.0 qa (extreme)
+805fd45	60.591278	keep	qwen3.6-35b-bf16 stream=True qa
+805fd45	74.474350	keep	qwen3.6-35b-q8 stream=True qa
+9cab91a	60.720514	keep	qwen3.6-35b-bf16 stream=True summarization
+9cab91a	74.718802	keep	qwen3.6-35b-q8 stream=True summarization
+ff6147f	60.605538	keep	qwen3.6-35b-bf16 stream=True open_ended
+ff6147f	74.696857	keep	qwen3.6-35b-q8 stream=True open_ended
+ae518b1	60.604818	keep	qwen3.6-35b-bf16 prompt=qa_short
+ae518b1	74.565373	keep	qwen3.6-35b-q8 prompt=qa_short
+7aba6c7	60.697550	keep	qwen3.6-35b-bf16 prompt=qa_long
+7aba6c7	74.853815	keep	qwen3.6-35b-q8 prompt=qa_long
+9a9acea	60.206668	keep	qwen3.6-35b-bf16 prompt=summarization_short
+9a9acea	74.244827	keep	qwen3.6-35b-q8 prompt=summarization_short
+d2407be	60.528022	keep	qwen3.6-35b-bf16 prompt=summarization_long
+d2407be	74.497525	keep	qwen3.6-35b-q8 prompt=summarization_long
+9e1c016	60.736453	keep	qwen3.6-35b-bf16 prompt=open_ended_long
+9e1c016	74.863703	keep	qwen3.6-35b-q8 prompt=open_ended_long
+b70452c	60.691812	keep	qwen3.6-35b-bf16 prompt=code analyze quicksort
+b70452c	75.062893	keep	qwen3.6-35b-q8 prompt=code analyze quicksort
+20e3430	60.660293	keep	qwen3.6-35b-bf16 prompt=code_gen dijkstra
+20e3430	74.646732	keep	qwen3.6-35b-q8 prompt=code_gen dijkstra
+cb77e08	61.038851	keep	qwen3.6-35b-bf16 prompt=math word problem
+cb77e08	74.897946	keep	qwen3.6-35b-q8 prompt=math word problem
+7d3a96c	60.234149	keep	qwen3.6-35b-bf16 prompt=math_hard induction proof
+7d3a96c	74.305947	keep	qwen3.6-35b-q8 prompt=math_hard induction proof
+2262801	60.447856	keep	qwen3.6-35b-bf16 prompt=multilingual_es
+2262801	74.342875	keep	qwen3.6-35b-q8 prompt=multilingual_es
+3e5a515	60.597972	keep	qwen3.6-35b-bf16 prompt=multilingual_zh
+3e5a515	74.539263	keep	qwen3.6-35b-q8 prompt=multilingual_zh
+996e35b	60.263098	keep	qwen3.6-35b-bf16 prompt=multilingual_fr
+996e35b	74.066341	keep	qwen3.6-35b-q8 prompt=multilingual_fr
+f4e03ce	60.352683	keep	qwen3.6-35b-bf16 prefix_cache probe 1/5 qa defaults
+f4e03ce	74.667487	keep	qwen3.6-35b-q8 prefix_cache probe 1/5 qa defaults
+60350a7	60.645362	keep	qwen3.6-35b-bf16 prefix_cache probe 2/5 qa defaults
+60350a7	74.535450	keep	qwen3.6-35b-q8 prefix_cache probe 2/5 qa defaults
+6abd6b5	60.400467	keep	qwen3.6-35b-bf16 prefix_cache probe 3/5 qa defaults
+6abd6b5	74.258454	keep	qwen3.6-35b-q8 prefix_cache probe 3/5 qa defaults
+3897b84	60.287002	keep	qwen3.6-35b-bf16 prefix_cache probe 4/5 qa defaults
+3897b84	74.546731	keep	qwen3.6-35b-q8 prefix_cache probe 4/5 qa defaults
+aaa5738	60.640621	keep	qwen3.6-35b-bf16 prefix_cache probe 5/5 qa defaults
+aaa5738	74.485066	keep	qwen3.6-35b-q8 prefix_cache probe 5/5 qa defaults
+3c9e76e	60.537858	keep	qwen3.6-35b-bf16 code x max_tokens=128
+3c9e76e	74.245449	keep	qwen3.6-35b-q8 code x max_tokens=128
+7061cdf	60.832145	keep	qwen3.6-35b-bf16 code x max_tokens=1024
+7061cdf	75.213491	keep	qwen3.6-35b-q8 code x max_tokens=1024
+4d57fe9	61.010758	keep	qwen3.6-35b-bf16 code x max_tokens=2048
+4d57fe9	75.252155	keep	qwen3.6-35b-q8 code x max_tokens=2048
+ba77273	58.591106	keep	qwen3.6-35b-bf16 code_gen x max_tokens=128
+ba77273	71.573053	keep	qwen3.6-35b-q8 code_gen x max_tokens=128
+4e0ebc1	60.517456	keep	qwen3.6-35b-bf16 code_gen x max_tokens=1024
+4e0ebc1	74.589022	keep	qwen3.6-35b-q8 code_gen x max_tokens=1024
+3750b9c	60.871229	keep	qwen3.6-35b-bf16 code_gen x max_tokens=2048
+3750b9c	75.061851	keep	qwen3.6-35b-q8 code_gen x max_tokens=2048
+b5355c3	60.547247	keep	qwen3.6-35b-bf16 math x max_tokens=128
+b5355c3	74.472238	keep	qwen3.6-35b-q8 math x max_tokens=128
+f77eb8c	60.885620	keep	qwen3.6-35b-bf16 math x max_tokens=1024
+f77eb8c	75.038620	keep	qwen3.6-35b-q8 math x max_tokens=1024
+dfe866b	60.768863	keep	qwen3.6-35b-bf16 math_hard x max_tokens=1024
+dfe866b	74.756759	keep	qwen3.6-35b-q8 math_hard x max_tokens=1024
+25814ef	60.769356	keep	qwen3.6-35b-bf16 math_hard x max_tokens=2048
+25814ef	74.804033	keep	qwen3.6-35b-q8 math_hard x max_tokens=2048
+22b8c05	60.687557	keep	qwen3.6-35b-bf16 multilingual_zh x max_tokens=1024
+22b8c05	74.938873	keep	qwen3.6-35b-q8 multilingual_zh x max_tokens=1024
+7881cb6	60.987775	keep	qwen3.6-35b-bf16 multilingual_zh x max_tokens=2048
+7881cb6	74.762909	keep	qwen3.6-35b-q8 multilingual_zh x max_tokens=2048
+c023599	60.536886	keep	qwen3.6-35b-bf16 multilingual_es x max_tokens=1024
+c023599	74.797162	keep	qwen3.6-35b-q8 multilingual_es x max_tokens=1024
+6cf0c88	60.759485	keep	qwen3.6-35b-bf16 multilingual_fr x max_tokens=1024
+6cf0c88	74.656881	keep	qwen3.6-35b-q8 multilingual_fr x max_tokens=1024
+412ff4b	56.556701	keep	qwen3.6-35b-bf16 max_tokens=64 qa (very short)
+412ff4b	70.533802	keep	qwen3.6-35b-q8 max_tokens=64 qa (very short)
+bba2571	59.063831	keep	qwen3.6-35b-bf16 max_tokens=64 summarization_long (prefill-heavy)
+bba2571	72.086293	keep	qwen3.6-35b-q8 max_tokens=64 summarization_long (prefill-heavy)
+25391e5	59.547465	keep	qwen3.6-35b-bf16 max_tokens=64 code
+25391e5	73.030523	keep	qwen3.6-35b-q8 max_tokens=64 code
+176df6c	59.586174	keep	qwen3.6-35b-bf16 max_tokens=64 math
+176df6c	73.265830	keep	qwen3.6-35b-q8 max_tokens=64 math
+9b1d77d	0.000000	crash	crash max_tokens=32 qa (extreme prefill share)
+6962cf3	60.707597	keep	qwen3.6-35b-bf16 stream=True math
+6962cf3	74.974969	keep	qwen3.6-35b-q8 stream=True math
+3bb5ecc	61.224480	keep	qwen3.6-35b-bf16 stream=True code
+3bb5ecc	75.056557	keep	qwen3.6-35b-q8 stream=True code
+a0bc952	60.460874	keep	qwen3.6-35b-bf16 stream=True multilingual_zh
+a0bc952	74.231432	keep	qwen3.6-35b-q8 stream=True multilingual_zh
+6ff120c	60.690556	keep	qwen3.6-35b-bf16 stream=True qa_long
+6ff120c	74.747980	keep	qwen3.6-35b-q8 stream=True qa_long
+40c544d	60.896335	keep	qwen3.6-35b-bf16 stream=True open_ended_long max_tokens=1024
+40c544d	75.195164	keep	qwen3.6-35b-q8 stream=True open_ended_long max_tokens=1024
+e6d65ac	59.014044	keep	qwen3.6-35b-bf16 stream=True qa max_tokens=128
+e6d65ac	72.067134	keep	qwen3.6-35b-q8 stream=True qa max_tokens=128
+5e0c864	60.428087	keep	qwen3.6-35b-bf16 stream=True qa max_tokens=1024
+5e0c864	74.471518	keep	qwen3.6-35b-q8 stream=True qa max_tokens=1024
+c48f604	60.340256	keep	qwen3.6-35b-bf16 temp=0.7 code_gen
+c48f604	74.469924	keep	qwen3.6-35b-q8 temp=0.7 code_gen
+373c326	60.345977	keep	qwen3.6-35b-bf16 temp=0.7 math_hard
+373c326	74.322135	keep	qwen3.6-35b-q8 temp=0.7 math_hard
+6924bf0	60.787555	keep	qwen3.6-35b-bf16 temp=1.2 top_k=40 open_ended_long
+6924bf0	74.609179	keep	qwen3.6-35b-q8 temp=1.2 top_k=40 open_ended_long
+50e6b15	58.487084	keep	qwen3.6-35b-bf16 multilingual_es x max_tokens=128
+50e6b15	71.615421	keep	qwen3.6-35b-q8 multilingual_es x max_tokens=128
+7e541c6	58.815742	keep	qwen3.6-35b-bf16 multilingual_zh x max_tokens=128
+7e541c6	72.282292	keep	qwen3.6-35b-q8 multilingual_zh x max_tokens=128
+6d93c6c	58.668575	keep	qwen3.6-35b-bf16 multilingual_fr x max_tokens=128
+6d93c6c	71.745371	keep	qwen3.6-35b-q8 multilingual_fr x max_tokens=128
+f075de9	60.557002	keep	qwen3.6-35b-bf16 summarization_long x max_tokens=1024
+f075de9	74.444819	keep	qwen3.6-35b-q8 summarization_long x max_tokens=1024
+1281362	60.644753	keep	qwen3.6-35b-bf16 qa_long x max_tokens=2048
+1281362	74.998518	keep	qwen3.6-35b-q8 qa_long x max_tokens=2048
+98869ab	61.064740	keep	qwen3.6-35b-bf16 open_ended_long x max_tokens=2048
+98869ab	75.389277	keep	qwen3.6-35b-q8 open_ended_long x max_tokens=2048
+802807f	58.896654	keep	qwen3.6-35b-bf16 qa_short x max_tokens=128
+802807f	72.568569	keep	qwen3.6-35b-q8 qa_short x max_tokens=128
+85c3bdd	60.610631	keep	qwen3.6-35b-bf16 qa_short x max_tokens=1024
+85c3bdd	74.823191	keep	qwen3.6-35b-q8 qa_short x max_tokens=1024
+e2abaf3	58.021323	keep	qwen3.6-35b-bf16 summarization_short x max_tokens=128
+e2abaf3	70.704740	keep	qwen3.6-35b-q8 summarization_short x max_tokens=128
+68b8118	60.449912	keep	qwen3.6-35b-bf16 stream=True multilingual_es
+68b8118	74.309761	keep	qwen3.6-35b-q8 stream=True multilingual_es
+fbfdc1d	60.343459	keep	qwen3.6-35b-bf16 stream=True multilingual_fr
+fbfdc1d	74.026366	keep	qwen3.6-35b-q8 stream=True multilingual_fr
+e2a5258	60.136822	keep	qwen3.6-35b-bf16 stream=True math_hard
+e2a5258	74.115502	keep	qwen3.6-35b-q8 stream=True math_hard
+e261ffe	60.829626	keep	qwen3.6-35b-bf16 stream=True code_gen max_tokens=1024
+e261ffe	75.048936	keep	qwen3.6-35b-q8 stream=True code_gen max_tokens=1024
+2988469	60.474133	keep	qwen3.6-35b-bf16 num_trials=8 qa (longer averaging)
+2988469	74.296804	keep	qwen3.6-35b-q8 num_trials=8 qa (longer averaging)
+0c9aa33	60.804594	keep	qwen3.6-35b-bf16 num_trials=8 code
+0c9aa33	75.013067	keep	qwen3.6-35b-q8 num_trials=8 code
+64a1203	60.539408	keep	qwen3.6-35b-bf16 num_trials=10 qa
+64a1203	74.347729	keep	qwen3.6-35b-q8 num_trials=10 qa
+530c9b2	60.411613	keep	qwen3.6-35b-bf16 late_reproducibility probe qa defaults 1/3
+530c9b2	74.672183	keep	qwen3.6-35b-q8 late_reproducibility probe qa defaults 1/3
+175245b	60.640101	keep	qwen3.6-35b-bf16 late_reproducibility probe qa defaults 2/3
+175245b	74.597003	keep	qwen3.6-35b-q8 late_reproducibility probe qa defaults 2/3
+b80a022	60.424173	keep	qwen3.6-35b-bf16 late_reproducibility probe qa defaults 3/3
+b80a022	74.292184	keep	qwen3.6-35b-q8 late_reproducibility probe qa defaults 3/3
+333c6a2	60.631699	keep	qwen3.6-35b-bf16 code x max_tokens=256
+333c6a2	74.640175	keep	qwen3.6-35b-q8 code x max_tokens=256
+de29ae3	60.620039	keep	qwen3.6-35b-bf16 math x max_tokens=256
+de29ae3	74.913176	keep	qwen3.6-35b-q8 math x max_tokens=256
+d945535	60.644370	keep	qwen3.6-35b-bf16 summarization_short x max_tokens=1024
+d945535	74.351509	keep	qwen3.6-35b-q8 summarization_short x max_tokens=1024
+bef2710	60.127439	keep	qwen3.6-35b-bf16 code_gen x max_tokens=256
+bef2710	73.784483	keep	qwen3.6-35b-q8 code_gen x max_tokens=256
+d9f8557	56.948106	keep	qwen3.6-35b-bf16 open_ended x max_tokens=64
+d9f8557	69.394339	keep	qwen3.6-35b-q8 open_ended x max_tokens=64
+a8bc74a	56.836897	keep	qwen3.6-35b-bf16 multilingual_zh max_tokens=64
+a8bc74a	69.331400	keep	qwen3.6-35b-q8 multilingual_zh max_tokens=64
+ca7878b	60.515200	keep	qwen3.6-35b-bf16 stream=True multilingual_zh max_tokens=1024
+ca7878b	74.645694	keep	qwen3.6-35b-q8 stream=True multilingual_zh max_tokens=1024
+8729299	59.675590	keep	qwen3.6-35b-bf16 code x max_tokens=64
+8729299	73.074794	keep	qwen3.6-35b-q8 code x max_tokens=64
+d1bbcfb	58.544866	keep	qwen3.6-35b-bf16 math_hard x max_tokens=128
+d1bbcfb	71.286437	keep	qwen3.6-35b-q8 math_hard x max_tokens=128
+8cc3cf2	59.781058	keep	qwen3.6-35b-bf16 summarization_long x max_tokens=128 (prefill-dominant)
+8cc3cf2	73.402646	keep	qwen3.6-35b-q8 summarization_long x max_tokens=128 (prefill-dominant)
+bd1f414	60.848651	keep	qwen3.6-35b-bf16 stream=True temp=0.7 qa_long
+bd1f414	74.973838	keep	qwen3.6-35b-q8 stream=True temp=0.7 qa_long
+39d4eeb	60.275350	keep	qwen3.6-35b-bf16 final probe qa defaults (invocation 100)
+39d4eeb	74.039720	keep	qwen3.6-35b-q8 final probe qa defaults (invocation 100)

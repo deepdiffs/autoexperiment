@@ -1,7 +1,10 @@
 """
-Visualize experiment results as a self-contained HTML chart.
+Visualize head-to-head experiment results as a self-contained HTML chart.
 
-Reads progress.log and results.tsv, writes results.html next to them.
+Reads progress.log, writes results.html next to it. Each invocation produces
+two rows (bf16 + q8); this renders them as two series sharing an invocation #
+on the x-axis so the per-config delta is obvious.
+
 Open results.html in a browser — Chart.js loads from CDN.
 
 Usage:
@@ -18,7 +21,6 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 PROGRESS_LOG = HERE / "progress.log"
-RESULTS_TSV = HERE / "results.tsv"
 OUT_HTML = HERE / "results.html"
 
 LINE_RE = re.compile(
@@ -30,7 +32,9 @@ LINE_RE = re.compile(
     r"(?P<desc>.*)$"
 )
 
-MODELS = ("qwen3.6-35b-bf16", "qwen3.6-35b-q8")
+MODEL_BF16 = "qwen3.6-35b-bf16"
+MODEL_Q8 = "qwen3.6-35b-q8"
+MODELS = (MODEL_BF16, MODEL_Q8)
 PROMPT_TYPES = ("qa", "open_ended", "summarization")
 MAX_TOKENS_RE = re.compile(r"max_tokens?=(\d+)", re.IGNORECASE)
 
@@ -54,27 +58,22 @@ def parse_progress(path):
             "model": next((x for x in MODELS if x in desc), ""),
             "prompt_type": next((x for x in PROMPT_TYPES if x in desc), ""),
             "max_tokens": _first_int(MAX_TOKENS_RE, desc),
-            "baseline": desc.startswith("baseline "),
+            "baseline": "baseline" in desc.lower(),
         })
     rows.sort(key=lambda r: r["run"])
+
+    # Assign invocation # by commit order (each invocation shares one commit).
+    invocation_by_commit = {}
+    for r in rows:
+        if r["commit"] not in invocation_by_commit:
+            invocation_by_commit[r["commit"]] = len(invocation_by_commit) + 1
+        r["invocation"] = invocation_by_commit[r["commit"]]
     return rows
 
 
 def _first_int(regex, s):
     m = regex.search(s)
     return int(m.group(1)) if m else None
-
-
-def running_best(rows, goal="maximize"):
-    """Best-so-far across kept runs (status == 'keep'), else carry previous."""
-    cmp = (lambda a, b: a > b) if goal == "maximize" else (lambda a, b: a < b)
-    best_vals = []
-    best = None
-    for r in rows:
-        if r["status"] == "keep" and (best is None or cmp(r["metric"], best)):
-            best = r["metric"]
-        best_vals.append(best)
-    return best_vals
 
 
 HTML_TEMPLATE = """<!doctype html>
@@ -110,12 +109,12 @@ HTML_TEMPLATE = """<!doctype html>
   }}
   th, td {{ text-align: left; padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }}
   th {{ background: #f7f7f7; font-weight: 600; }}
-  tr.keep td {{ background: #f6fbf6; }}
-  tr.discard td {{ color: #888; }}
+  tr.keep td {{ background: #fbfbfb; }}
   tr.crash td {{ background: #fdf3f3; color: #a00; }}
+  tr.bf16 td.model {{ color: #1f6feb; font-weight: 600; }}
+  tr.q8 td.model {{ color: #2e8b57; font-weight: 600; }}
   .dot {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }}
   .dot.keep {{ background: #2e8b57; }}
-  .dot.discard {{ background: #999; }}
   .dot.crash {{ background: #d33; }}
   code {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }}
 </style>
@@ -125,13 +124,11 @@ HTML_TEMPLATE = """<!doctype html>
 <div class="sub">{subtitle}</div>
 
 <div class="summary">
-  <div><b>Runs:</b> {n_runs}</div>
-  <div><b>Kept:</b> {n_keep}</div>
-  <div><b>Discarded:</b> {n_discard}</div>
-  <div><b>Crashes:</b> {n_crash}</div>
-  <div><b>Best {metric_name}:</b> {best_metric} <span style="color:#666">(run {best_run}, <code>{best_commit}</code>)</span></div>
-  <div><b>Baseline best:</b> {baseline_best}</div>
-  <div><b>Lift:</b> +{lift_pct}%</div>
+  <div><b>Invocations:</b> {n_invocations}</div>
+  <div><b>Rows:</b> {n_rows} ({n_keep} keep, {n_crash} crash)</div>
+  <div><b>bf16 mean:</b> {bf16_mean} tok/s <span style="color:#666">(min {bf16_min}, max {bf16_max})</span></div>
+  <div><b>q8 mean:</b> {q8_mean} tok/s <span style="color:#666">(min {q8_min}, max {q8_max})</span></div>
+  <div><b>q8 / bf16:</b> {ratio}×</div>
 </div>
 
 <div class="chart-wrap"><canvas id="chart"></canvas></div>
@@ -139,7 +136,7 @@ HTML_TEMPLATE = """<!doctype html>
 <table>
   <thead>
     <tr>
-      <th>#</th><th>status</th><th>metric</th><th>commit</th><th>model</th><th>prompt</th><th>max_tok</th><th>description</th>
+      <th>#</th><th>inv</th><th>status</th><th>metric</th><th>commit</th><th>model</th><th>prompt</th><th>max_tok</th><th>description</th>
     </tr>
   </thead>
   <tbody>
@@ -150,27 +147,20 @@ HTML_TEMPLATE = """<!doctype html>
 <script>
 const DATA = {data_json};
 
-const keepPts = [];
-const discardPts = [];
+const bf16Pts = [];
+const q8Pts = [];
 const crashPts = [];
-const bestLine = [];
 
 for (const r of DATA.rows) {{
-  const pt = {{ x: r.run, y: r.metric, meta: r }};
-  if (r.status === 'keep') keepPts.push(pt);
-  else if (r.status === 'crash') crashPts.push(pt);
-  else discardPts.push(pt);
-}}
-for (let i = 0; i < DATA.rows.length; i++) {{
-  const r = DATA.rows[i];
-  const best = DATA.running_best[i];
-  if (best !== null) bestLine.push({{ x: r.run, y: best }});
+  const pt = {{ x: r.invocation, y: r.metric, meta: r }};
+  if (r.status === 'crash') crashPts.push(pt);
+  else if (r.model === 'qwen3.6-35b-bf16') bf16Pts.push(pt);
+  else if (r.model === 'qwen3.6-35b-q8') q8Pts.push(pt);
 }}
 
 const annotations = [];
-// Vertical separator between baseline and exploration
 const lastBaseline = DATA.rows.filter(r => r.baseline).slice(-1)[0];
-if (lastBaseline) annotations.push(lastBaseline.run + 0.5);
+if (lastBaseline) annotations.push(lastBaseline.invocation + 0.5);
 
 const ctx = document.getElementById('chart').getContext('2d');
 new Chart(ctx, {{
@@ -178,42 +168,29 @@ new Chart(ctx, {{
   data: {{
     datasets: [
       {{
-        label: 'best so far',
-        type: 'line',
-        data: bestLine,
-        borderColor: '#2e8b57',
-        backgroundColor: 'rgba(46,139,87,0.08)',
-        borderWidth: 2,
-        pointRadius: 0,
-        stepped: true,
-        order: 0,
+        label: 'qwen3.6-35b-bf16',
+        data: bf16Pts,
+        backgroundColor: '#1f6feb',
+        borderColor: '#1f6feb',
+        pointRadius: 4,
+        pointHoverRadius: 7,
       }},
       {{
-        label: 'keep',
-        data: keepPts,
+        label: 'qwen3.6-35b-q8',
+        data: q8Pts,
         backgroundColor: '#2e8b57',
         borderColor: '#2e8b57',
-        pointRadius: 5,
-        pointHoverRadius: 7,
-        order: 1,
-      }},
-      {{
-        label: 'discard',
-        data: discardPts,
-        backgroundColor: '#bbbbbb',
-        borderColor: '#999999',
         pointRadius: 4,
-        pointHoverRadius: 6,
-        order: 2,
+        pointHoverRadius: 7,
       }},
       {{
         label: 'crash',
         data: crashPts,
         backgroundColor: '#d33',
         borderColor: '#a00',
-        pointRadius: 5,
-        pointHoverRadius: 7,
-        order: 1,
+        pointStyle: 'crossRot',
+        pointRadius: 7,
+        pointHoverRadius: 9,
       }},
     ]
   }},
@@ -224,11 +201,11 @@ new Chart(ctx, {{
     scales: {{
       x: {{
         type: 'linear',
-        title: {{ display: true, text: 'run #' }},
+        title: {{ display: true, text: 'invocation #' }},
         ticks: {{ stepSize: 5 }},
       }},
       y: {{
-        title: {{ display: true, text: DATA.metric_name + ' (higher is better)' }},
+        title: {{ display: true, text: 'tokens_per_second' }},
       }},
     }},
     plugins: {{
@@ -237,17 +214,16 @@ new Chart(ctx, {{
         callbacks: {{
           title: items => {{
             const r = items[0].raw.meta;
-            return r ? `run ${{r.run}} — ${{r.status}}` : '';
+            return r ? `invocation ${{r.invocation}} — ${{r.model || r.status}}` : '';
           }},
           label: items => {{
             const r = items.raw.meta;
-            if (!r) return `best so far: ${{items.raw.y.toFixed(3)}}`;
+            if (!r) return '';
             const lines = [
-              `${{DATA.metric_name}}: ${{r.metric.toFixed(4)}}`,
+              `tokens_per_second: ${{r.metric.toFixed(4)}}`,
               `commit: ${{r.commit}}`,
               `time: ${{r.ts}}`,
             ];
-            if (r.model) lines.push(`model: ${{r.model}}`);
             if (r.prompt_type) lines.push(`prompt: ${{r.prompt_type}}`);
             if (r.max_tokens !== null) lines.push(`max_tokens: ${{r.max_tokens}}`);
             lines.push(`— ${{r.description}}`);
@@ -255,7 +231,6 @@ new Chart(ctx, {{
           }}
         }}
       }},
-      annotation: {{}},
     }},
   }},
   plugins: [
@@ -291,13 +266,15 @@ new Chart(ctx, {{
 
 def row_html(r):
     cls = r["status"]
+    model_cls = "bf16" if r["model"] == MODEL_BF16 else ("q8" if r["model"] == MODEL_Q8 else "")
     return (
-        f'<tr class="{cls}">'
+        f'<tr class="{cls} {model_cls}">'
         f'<td>{r["run"]}</td>'
+        f'<td>{r["invocation"]}</td>'
         f'<td><span class="dot {cls}"></span>{cls}</td>'
         f'<td>{r["metric"]:.4f}</td>'
         f'<td><code>{html.escape(r["commit"])}</code></td>'
-        f'<td>{html.escape(r["model"])}</td>'
+        f'<td class="model">{html.escape(r["model"])}</td>'
         f'<td>{html.escape(r["prompt_type"])}</td>'
         f'<td>{r["max_tokens"] if r["max_tokens"] is not None else ""}</td>'
         f'<td>{html.escape(r["description"])}</td>'
@@ -305,37 +282,35 @@ def row_html(r):
     )
 
 
-def render(rows, metric_name="tokens_per_second"):
-    best_by = running_best(rows, goal="maximize")
+def _stats(values):
+    if not values:
+        return ("—", "—", "—", 0.0)
+    return (f"{sum(values)/len(values):.2f}", f"{min(values):.2f}", f"{max(values):.2f}", sum(values)/len(values))
+
+
+def render(rows):
     keeps = [r for r in rows if r["status"] == "keep"]
-    discards = [r for r in rows if r["status"] == "discard"]
     crashes = [r for r in rows if r["status"] == "crash"]
+    n_invocations = max((r["invocation"] for r in rows), default=0)
 
-    baselines = [r for r in rows if r["baseline"]]
-    baseline_best = max((r["metric"] for r in baselines), default=0.0)
-    best_row = max(keeps, key=lambda r: r["metric"]) if keeps else None
-    best_metric = best_row["metric"] if best_row else 0.0
-    lift_pct = ((best_metric - baseline_best) / baseline_best * 100.0) if baseline_best else 0.0
+    bf16_vals = [r["metric"] for r in keeps if r["model"] == MODEL_BF16]
+    q8_vals = [r["metric"] for r in keeps if r["model"] == MODEL_Q8]
+    bf16_mean_s, bf16_min_s, bf16_max_s, bf16_mean = _stats(bf16_vals)
+    q8_mean_s, q8_min_s, q8_max_s, q8_mean = _stats(q8_vals)
+    ratio = f"{(q8_mean / bf16_mean):.3f}" if bf16_mean else "—"
 
-    data = {
-        "metric_name": metric_name,
-        "rows": rows,
-        "running_best": best_by,
-    }
+    data = {"rows": rows}
 
     return HTML_TEMPLATE.format(
-        title="autoexperiment — tokens/sec results",
-        subtitle=f"{len(rows)} runs — branch visualization",
-        metric_name=metric_name,
-        n_runs=len(rows),
+        title="autoexperiment — Qwen bf16 vs q8 head-to-head",
+        subtitle=f"{n_invocations} invocations, {len(rows)} rows — branch visualization",
+        n_invocations=n_invocations,
+        n_rows=len(rows),
         n_keep=len(keeps),
-        n_discard=len(discards),
         n_crash=len(crashes),
-        best_metric=f"{best_metric:.4f}" if best_row else "—",
-        best_run=best_row["run"] if best_row else "—",
-        best_commit=best_row["commit"] if best_row else "—",
-        baseline_best=f"{baseline_best:.4f}" if baselines else "—",
-        lift_pct=f"{lift_pct:.2f}",
+        bf16_mean=bf16_mean_s, bf16_min=bf16_min_s, bf16_max=bf16_max_s,
+        q8_mean=q8_mean_s, q8_min=q8_min_s, q8_max=q8_max_s,
+        ratio=ratio,
         rows_html="\n    ".join(row_html(r) for r in rows),
         data_json=json.dumps(data),
     )
@@ -347,11 +322,10 @@ def main():
         print(f"no parsable rows in {PROGRESS_LOG}", file=sys.stderr)
         sys.exit(1)
     OUT_HTML.write_text(render(rows))
-    print(f"wrote {OUT_HTML} ({len(rows)} rows)")
+    print(f"wrote {OUT_HTML} ({len(rows)} rows, {max(r['invocation'] for r in rows)} invocations)")
     if "--open" in sys.argv:
         webbrowser.open(OUT_HTML.as_uri())
 
 
 if __name__ == "__main__":
     main()
-
