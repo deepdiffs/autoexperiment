@@ -34,7 +34,7 @@ from harness import (
 # ---------------------------------------------------------------------------
 
 PROMPT_TYPE = "qa_long"
-MAX_TOKENS = 128
+MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
 TOP_P = None
