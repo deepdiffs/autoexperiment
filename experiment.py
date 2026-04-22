@@ -45,7 +45,7 @@ STREAM = True
 # accepts arbitrary extra fields and passes the recognized ones through to its
 # generate path. Set to None to omit the field.
 REPETITION_PENALTY = 1.05
-REPETITION_CONTEXT_SIZE = None   # e.g. 20
+REPETITION_CONTEXT_SIZE = 20
 MIN_P = 0.05                     # tests non-zero min_p filtering overhead
 MIN_TOKENS_TO_KEEP = None        # for sampling
 
