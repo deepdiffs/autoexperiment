@@ -37,7 +37,7 @@ PROMPT_TYPE = "code_gen"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 1.0
-TOP_P = None
+TOP_P = 0.95
 TOP_K = None
 STREAM = True
 
