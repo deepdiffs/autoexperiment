@@ -39,6 +39,14 @@ Per invocation, `experiment.py` runs 1 warmup + `NUM_TRIALS` timed trials **per 
 
 ## Setup
 
+**First, check whether you are starting a fresh run or resuming one in progress:**
+
+- Run `awk -F'\t' 'NR>1 {print $1}' results.tsv | sort -u | wc -l` — this is the current invocation count.
+- If the count is **0**, this is a fresh run → follow "Fresh run" below.
+- If the count is **≥ 1**, you are resuming → follow "Resuming a run" below.
+
+### Fresh run
+
 1. **Confirm the server is up**: `uv run harness.py` checks `/v1/models` and runs a small smoke completion. If it fails, tell the human to start `mlx_lm.server`.
 2. **Agree on a run tag**: propose a tag that uniquely identifies this run. Pick one of:
    - `<date>-<HHMM>` — e.g. `apr21-1430`. Always unique, good default.
@@ -47,12 +55,20 @@ Per invocation, `experiment.py` runs 1 warmup + `NUM_TRIALS` timed trials **per 
 3. **Create the branch**: `git checkout -b autoexperiment/<tag>` from current master.
 4. **Read the in-scope files**:
    - `README.md` — repository context.
-   - `harness.py` — fixed configuration (metric, goal, time budget, model id, `MAX_RUNS`) and utilities. Do not modify.
+   - `harness.py` — fixed configuration (metric, goal, time budget, model ids, `MAX_RUNS`) and utilities. Do not modify. Note the `log_result()` and `log_progress()` helpers — `experiment.py` already calls these.
    - `experiment.py` — the file you modify.
 5. **Initialize logs fresh** on this branch:
-   - `results.tsv` — create with just the header row: `commit\tmetric_value\tstatus\tdescription`.
-   - `progress.log` — truncate (`: > progress.log`).
-6. **Confirm and go**.
+   - `results.tsv` — `experiment.py` creates the header automatically on first write; you can either remove the file or pre-create it with the 5-column header (`commit\tmodel\tmetric_value\tstatus\tdescription`).
+   - `progress.log` — `: > progress.log` (or just leave absent — `experiment.py` will create it).
+6. **Run the 3 baseline invocations** below.
+
+### Resuming a run
+
+1. **Confirm the server is up**: `uv run harness.py` (same as above; if it fails, tell the human to start `mlx_lm.server`).
+2. **Read the in-scope files**: `README.md`, `harness.py`, `experiment.py` — full context. Also tail the last ~10 lines of `progress.log` and `results.tsv` to see what's already been tried, what the most recent metrics look like, and what the current `experiment.py` knob values represent.
+3. **Confirm the invocation budget**: `MAX_RUNS - <current invocation count>` invocations remaining.
+4. **Skip the baseline phase if 3+ baselines exist** (3 unique commits with distinct `prompt_type` values among `qa`/`summarization`/`open_ended`). Otherwise complete it first.
+5. **Continue with strategy guidance** below — pick the next single-knob change, commit, run, observe.
 
 ## Experimentation
 
@@ -88,9 +104,9 @@ Before exploring, establish **3 baseline invocations** — one per `PROMPT_TYPE`
 | 2          | `summarization`  | defaults                           |
 | 3          | `open_ended`     | defaults                           |
 
-That's 3 invocations / 3 TSV rows, counting toward the 100-invocation cap.
+That's 3 invocations / 6 TSV rows (one row per model per invocation), counting toward the 100-invocation cap.
 
-Tag each baseline row's description clearly, e.g. `baseline qa`, `baseline summarization`.
+The descriptions are auto-built by `experiment.py` from the knob values — no manual tagging needed.
 
 ## Reference: Unsloth's documented settings for Qwen 3.6
 
