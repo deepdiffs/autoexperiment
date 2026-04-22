@@ -42,11 +42,11 @@ from harness import (
 # the whole point of this experiment is to run each config against both.
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
-PROMPT_TYPE = "open_ended_long"
-MAX_TOKENS = 512
+PROMPT_TYPE = "multilingual_es"
+MAX_TOKENS = 128
 NUM_TRIALS = 5
-TEMPERATURE = 1.2
-TOP_K = 40
+TEMPERATURE = 0.0
+TOP_K = None
 STREAM = False
 
 # Correctness guard — each trial must produce at least this many output tokens
