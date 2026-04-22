@@ -156,31 +156,34 @@ You should see exactly two `RESULT ` lines per successful invocation. If you see
 
 Log every experiment to `results.tsv` (tab-separated — commas break in descriptions).
 
-Header + 4 columns:
+Header + 5 columns:
 
 ```
-commit	metric_value	status	description
+commit	model	metric_value	status	description
 ```
 
 1. git commit hash (short, 7 chars). **Same commit appears on both rows for a single invocation.**
-2. `e2e_tokens_per_second` value for that model (0.000000 for crashes).
-3. status: `keep` for any valid measurement, `crash` for failures. **Do not use `discard`** — exploration, not optimization.
-4. short text description capturing **the model shortname AND the variant**, e.g. `35B-A3B baseline qa`, `27B baseline qa`, `35B-A3B max_tokens=1024 qa`. The model must be identifiable from the description (the TSV has no dedicated model column).
+2. full model id as served by mlx_lm (e.g. `unsloth/Qwen3.6-35B-A3B-MLX-8bit`). Must match exactly one of `MODEL_IDS`.
+3. `e2e_tokens_per_second` value for that model (0.000000 for crashes).
+4. status: `keep` for any valid measurement, `crash` for failures. **Do not use `discard`** — exploration, not optimization.
+5. description — a **complete snapshot of every tunable knob's value for this run**, in `key=value` form, space-separated. Always include: `prompt_type`, `max_tokens`, `num_trials`, `temperature`, `stream`. Include any other knob that is not `None`: `top_p`, `top_k`, `repetition_penalty`, `repetition_context_size`, `min_p`, `min_tokens_to_keep`, `draft_model`, `num_draft_tokens`. Prefix baseline rows with `baseline ` so they're easy to grep. Never use commas (they break TSV parsing downstream).
 
-**Every invocation produces 2 rows** — one per model — both sharing the same commit hash. Write them in the same order as `MODEL_IDS`. If one model crashes and the other succeeds, log both rows (one `crash`, one `keep`).
+**Every invocation produces 2 rows** — one per model — both sharing the same commit hash and the same description (the config is identical across the two models). Write them in the same order as `MODEL_IDS`. If one model crashes and the other succeeds, log both rows (one `crash`, one `keep`).
+
+**One-knob-per-run rule.** Each new commit must change **exactly one** knob vs. the previous commit (or vs. the baseline for the very first exploration step). The description columns across two consecutive invocations should differ in exactly one `key=value` pair. This makes every delta in the primary metric attributable to a single variable. If you want to change two things, do two separate commits and two separate invocations.
 
 Example:
 
 ```
-commit	metric_value	status	description
-a1b2c3d	38.500000	keep	35B-A3B baseline qa
-a1b2c3d	44.800000	keep	27B baseline qa
-b2c3d4e	35.100000	keep	35B-A3B baseline summarization
-b2c3d4e	41.900000	keep	27B baseline summarization
-c3d4e5f	30.400000	keep	35B-A3B max_tokens=1024 qa
-c3d4e5f	36.700000	keep	27B max_tokens=1024 qa
-d4e5f6g	0.000000	crash	35B-A3B bad request body, 400 from server
-d4e5f6g	0.000000	crash	27B bad request body, 400 from server
+commit	model	metric_value	status	description
+a1b2c3d	unsloth/Qwen3.6-35B-A3B-MLX-8bit	79.556526	keep	baseline prompt_type=qa max_tokens=512 num_trials=5 temperature=0.0 stream=True
+a1b2c3d	unsloth/Qwen3.6-27B-MLX-8bit	20.297485	keep	baseline prompt_type=qa max_tokens=512 num_trials=5 temperature=0.0 stream=True
+b2c3d4e	unsloth/Qwen3.6-35B-A3B-MLX-8bit	35.100000	keep	baseline prompt_type=summarization max_tokens=512 num_trials=5 temperature=0.0 stream=True
+b2c3d4e	unsloth/Qwen3.6-27B-MLX-8bit	18.400000	keep	baseline prompt_type=summarization max_tokens=512 num_trials=5 temperature=0.0 stream=True
+c3d4e5f	unsloth/Qwen3.6-35B-A3B-MLX-8bit	80.200000	keep	prompt_type=qa max_tokens=1024 num_trials=5 temperature=0.0 stream=True
+c3d4e5f	unsloth/Qwen3.6-27B-MLX-8bit	20.800000	keep	prompt_type=qa max_tokens=1024 num_trials=5 temperature=0.0 stream=True
+d4e5f6g	unsloth/Qwen3.6-35B-A3B-MLX-8bit	0.000000	crash	prompt_type=qa max_tokens=512 num_trials=5 temperature=0.0 stream=True draft_model=qwen-0.5B
+d4e5f6g	unsloth/Qwen3.6-27B-MLX-8bit	0.000000	crash	prompt_type=qa max_tokens=512 num_trials=5 temperature=0.0 stream=True draft_model=qwen-0.5B
 ```
 
 ## Progress log (for human monitoring)
