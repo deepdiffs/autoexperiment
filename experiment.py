@@ -2,18 +2,15 @@
 Experiment file — the agent modifies ONLY this file.
 Usage: uv run experiment.py
 
-Benchmark end-to-end tokens/sec of two Qwen models served by a local
-llama.cpp server on this Mac Studio (default: http://localhost:8080/v1).
+Benchmark a single MLX-served Qwen model via mlx_lm.server's OpenAI-compatible
+HTTP endpoint (default: http://localhost:8000/v1).
 
-Head-to-head paradigm: every invocation runs the EXACT SAME request against
-MODEL_QWEN_BF16 and then MODEL_QWEN_Q8, and prints one result block per
-model. The agent tunes config knobs below; each knob change is evaluated
-against both models so results are directly comparable.
+Per invocation: 1 warmup + NUM_TRIALS timed trials of the same chat completion
+request. Aggregates and reports e2e tok/s (primary), TTFT, prefill tok/s, and
+decode tok/s, plus token counts.
 
-Note: these Qwen models emit reasoning tokens (delta.reasoning_content or
-usage.completion_tokens_details.reasoning_tokens) in addition to visible
-content. The primary metric is TOTAL completion_tokens / total wall time,
-which matches real user-perceived throughput.
+Each agent edit changes ONE config knob, then re-runs to log a single result
+block for the configured combination.
 """
 
 import json
@@ -26,31 +23,41 @@ import httpx
 from harness import (
     METRIC_NAME,
     TIME_BUDGET,
-    LLAMA_BASE_URL_DEFAULT,
-    MODEL_QWEN_BF16,
-    MODEL_QWEN_Q8,
+    MLX_BASE_URL_DEFAULT,
+    MODEL_ID,
     Timer,
     print_results,
 )
 
 # ---------------------------------------------------------------------------
 # Configuration — the agent tunes these.
-# The SAME config is applied to both models on every invocation.
 # ---------------------------------------------------------------------------
-
-# The two models compared head-to-head, in this order. Do not remove either —
-# the whole point of this experiment is to run each config against both.
-MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
 PROMPT_TYPE = "qa"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
+TOP_P = None
 TOP_K = None
-STREAM = False
+STREAM = True
 
-# Correctness guard — each trial must produce at least this many output tokens
-# (total, including reasoning). Guards against empty/broken responses.
+# Extra mlx_lm-specific knobs forwarded into the request body. mlx_lm.server
+# accepts arbitrary extra fields and passes the recognized ones through to its
+# generate path. Set to None to omit the field.
+REPETITION_PENALTY = None        # e.g. 1.05
+REPETITION_CONTEXT_SIZE = None   # e.g. 20
+MIN_P = None                     # e.g. 0.05
+MIN_TOKENS_TO_KEEP = None        # for sampling
+
+# Speculative decoding via a smaller draft model. Most mlx_lm.server versions
+# accept "draft_model" + "num_draft_tokens" in the request body; older versions
+# ignore unknown fields. Set DRAFT_MODEL to a model id (already loadable by
+# mlx_lm) to enable. Leave None to disable.
+DRAFT_MODEL = None
+NUM_DRAFT_TOKENS = None
+
+# Correctness guard — each trial must produce at least this many output tokens.
+# Guards against empty/broken responses.
 MIN_COMPLETION_TOKENS = 50
 
 # Prompt bank.
@@ -134,31 +141,51 @@ PROMPTS = {
 # HTTP trial
 # ---------------------------------------------------------------------------
 
-def one_trial(client, url, headers, prompt, model, max_tokens, temperature, top_k=None, stream=True):
-    """Run one chat completion and return timing + usage stats."""
+def build_body(prompt):
     body = {
-        "model": model,
+        "model": MODEL_ID,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        "stream": stream,
+        "max_tokens": MAX_TOKENS,
+        "temperature": TEMPERATURE,
+        "stream": STREAM,
     }
-    if stream:
+    if STREAM:
         body["stream_options"] = {"include_usage": True}
-    if top_k is not None:
-        body["top_k"] = top_k
+    if TOP_P is not None:
+        body["top_p"] = TOP_P
+    if TOP_K is not None:
+        body["top_k"] = TOP_K
+    if REPETITION_PENALTY is not None:
+        body["repetition_penalty"] = REPETITION_PENALTY
+    if REPETITION_CONTEXT_SIZE is not None:
+        body["repetition_context_size"] = REPETITION_CONTEXT_SIZE
+    if MIN_P is not None:
+        body["min_p"] = MIN_P
+    if MIN_TOKENS_TO_KEEP is not None:
+        body["min_tokens_to_keep"] = MIN_TOKENS_TO_KEEP
+    if DRAFT_MODEL is not None:
+        body["draft_model"] = DRAFT_MODEL
+    if NUM_DRAFT_TOKENS is not None:
+        body["num_draft_tokens"] = NUM_DRAFT_TOKENS
+    return body
+
+
+def one_trial(client, url, prompt):
+    """Run one chat completion and return timing + usage stats."""
+    body = build_body(prompt)
 
     start = time.perf_counter()
-    first_any_token_at = None
-    first_content_at = None
-    last_any_token_at = None
+    first_token_at = None       # any visible/reasoning token (TTFT)
+    first_content_at = None     # first non-reasoning content token
+    last_token_at = None
     prompt_tokens = None
     completion_tokens = None
-    reasoning_tokens = None
-    cached_prompt_tokens = None
+    reasoning_tokens_seen = 0   # streaming-side counter (server may not report)
+    content_tokens_seen = 0
+    extra_usage = {}
 
-    if stream:
-        with client.stream("POST", url, headers=headers, json=body, timeout=300) as r:
+    if STREAM:
+        with client.stream("POST", url, json=body, timeout=300) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 if not line or not line.startswith("data:"):
@@ -171,77 +198,86 @@ def one_trial(client, url, headers, prompt, model, max_tokens, temperature, top_
                 choices = chunk.get("choices") or []
                 if choices:
                     delta = choices[0].get("delta") or {}
-                    saw_any = False
-                    if delta.get("reasoning_content"):
-                        saw_any = True
+                    # mlx_lm.server splits Qwen reasoning into delta.reasoning
+                    # (vs llama.cpp's delta.reasoning_content). Treat both
+                    # reasoning and content as "tokens" for TTFT/decode purposes.
+                    saw_token = False
+                    if delta.get("reasoning") or delta.get("reasoning_content"):
+                        saw_token = True
+                        reasoning_tokens_seen += 1
                     if delta.get("content"):
-                        saw_any = True
+                        saw_token = True
+                        content_tokens_seen += 1
                         if first_content_at is None:
                             first_content_at = time.perf_counter()
-                    if saw_any:
+                    if saw_token:
                         now = time.perf_counter()
-                        if first_any_token_at is None:
-                            first_any_token_at = now
-                        last_any_token_at = now
+                        if first_token_at is None:
+                            first_token_at = now
+                        last_token_at = now
 
                 usage = chunk.get("usage")
                 if usage:
                     prompt_tokens = usage.get("prompt_tokens")
                     completion_tokens = usage.get("completion_tokens")
-                    details = usage.get("completion_tokens_details") or {}
-                    reasoning_tokens = details.get("reasoning_tokens")
-                    pt_details = usage.get("prompt_tokens_details") or {}
-                    cached_prompt_tokens = pt_details.get("cached_tokens")
+                    # Stash any non-standard usage fields mlx_lm may surface.
+                    for k, v in usage.items():
+                        if k not in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                            extra_usage[k] = v
     else:
-        r = client.post(url, headers=headers, json=body, timeout=300)
+        r = client.post(url, json=body, timeout=300)
         r.raise_for_status()
         resp = r.json()
         usage = resp.get("usage") or {}
         prompt_tokens = usage.get("prompt_tokens")
         completion_tokens = usage.get("completion_tokens")
-        details = usage.get("completion_tokens_details") or {}
-        reasoning_tokens = details.get("reasoning_tokens")
-        pt_details = usage.get("prompt_tokens_details") or {}
-        cached_prompt_tokens = pt_details.get("cached_tokens")
+        for k, v in usage.items():
+            if k not in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                extra_usage[k] = v
 
     end = time.perf_counter()
     total_s = end - start
 
     prompt_tokens = prompt_tokens or 0
     completion_tokens = completion_tokens or 0
-    reasoning_tokens = reasoning_tokens or 0
-    content_tokens = max(completion_tokens - reasoning_tokens, 0)
 
     e2e_tok_s = (completion_tokens / total_s) if total_s > 0 else 0.0
 
-    if first_any_token_at is not None and first_any_token_at > start:
-        ttft_s = first_any_token_at - start
+    if first_token_at is not None and first_token_at > start:
+        ttft_s = first_token_at - start
         prefill_tok_s = (prompt_tokens / ttft_s) if prompt_tokens else 0.0
     else:
         ttft_s = total_s
         prefill_tok_s = 0.0
 
     if (
-        first_any_token_at is not None
-        and last_any_token_at is not None
-        and (last_any_token_at - first_any_token_at) > 0.05
+        first_token_at is not None
+        and last_token_at is not None
+        and (last_token_at - first_token_at) > 0.05
+        and completion_tokens > 1
     ):
-        decode_window_s = last_any_token_at - first_any_token_at
-        decode_tok_s = (completion_tokens - 1) / decode_window_s if completion_tokens > 1 else 0.0
+        decode_window_s = last_token_at - first_token_at
+        decode_tok_s = (completion_tokens - 1) / decode_window_s
     else:
         decode_tok_s = 0.0
+
+    if first_content_at is not None and first_content_at > start:
+        ttft_content_s = first_content_at - start
+    else:
+        ttft_content_s = 0.0
 
     return {
         "total_s": total_s,
         "ttft_ms": ttft_s * 1000.0,
+        "ttft_content_ms": ttft_content_s * 1000.0,
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
-        "reasoning_tokens": reasoning_tokens,
-        "content_tokens": content_tokens,
-        "cached_prompt_tokens": cached_prompt_tokens or 0,
+        "reasoning_tokens_seen": reasoning_tokens_seen,
+        "content_tokens_seen": content_tokens_seen,
         "e2e_tok_s": e2e_tok_s,
         "prefill_tok_s": prefill_tok_s,
         "decode_tok_s": decode_tok_s,
+        "extra_usage": extra_usage,
     }
 
 
@@ -254,109 +290,100 @@ def trim_mean(xs):
     return statistics.mean(sorted(xs)[1:-1])
 
 
-def run_model(client, url, headers, prompt, model, timer):
-    """Run warmup + NUM_TRIALS timed trials against a single model.
-
-    Returns the aggregated per-model result dict (or None if time ran out
-    before any trial completed)."""
-    print(f"[{model}] warmup...", flush=True)
-    _ = one_trial(client, url, headers, prompt, model, MAX_TOKENS, TEMPERATURE, TOP_K, STREAM)
-
-    trials = []
-    for i in range(NUM_TRIALS):
-        if timer.remaining() < 5:
-            print(
-                f"[{model}] time budget nearly exhausted after {i} trials; stopping early",
-                flush=True,
-            )
-            break
-        t = one_trial(client, url, headers, prompt, model, MAX_TOKENS, TEMPERATURE, TOP_K, STREAM)
-        if t["completion_tokens"] < MIN_COMPLETION_TOKENS:
-            raise RuntimeError(
-                f"[{model}] trial {i + 1} produced only {t['completion_tokens']} completion tokens "
-                f"(< {MIN_COMPLETION_TOKENS}); invalid run"
-            )
-        print(
-            f"[{model}]  trial {i + 1}: e2e={t['e2e_tok_s']:.2f} tok/s "
-            f"decode={t['decode_tok_s']:.2f} tok/s "
-            f"ttft={t['ttft_ms']:.0f}ms "
-            f"total={t['completion_tokens']} tok "
-            f"(reasoning={t['reasoning_tokens']}, content={t['content_tokens']})",
-            flush=True,
-        )
-        trials.append(t)
-
-    if not trials:
-        return None
-
-    return {
-        "model": model,
-        "e2e_tok_s": trim_mean([t["e2e_tok_s"] for t in trials]),
-        "decode_tok_s": trim_mean([t["decode_tok_s"] for t in trials]),
-        "prefill_tok_s": trim_mean([t["prefill_tok_s"] for t in trials]),
-        "ttft_ms": trim_mean([t["ttft_ms"] for t in trials]),
-        "total_s_per_trial": trim_mean([t["total_s"] for t in trials]),
-        "prompt_tokens": trials[0]["prompt_tokens"],
-        "completion_tokens_avg": trim_mean([t["completion_tokens"] for t in trials]),
-        "reasoning_tokens_avg": trim_mean([t["reasoning_tokens"] for t in trials]),
-        "content_tokens_avg": trim_mean([t["content_tokens"] for t in trials]),
-        "cached_prompt_tokens": trials[0]["cached_prompt_tokens"],
-        "trials_completed": len(trials),
-    }
-
-
 # ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 
 timer = Timer()
 
-base_url = os.environ.get("LLAMA_BASE_URL", LLAMA_BASE_URL_DEFAULT).rstrip("/")
+base_url = os.environ.get("MLX_BASE_URL", MLX_BASE_URL_DEFAULT).rstrip("/")
 url = f"{base_url}/chat/completions"
-headers = {}
-
 prompt = PROMPTS[PROMPT_TYPE]
 
 print(
-    f"config: models={MODELS} prompt_type={PROMPT_TYPE} "
-    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE}",
+    f"config: model={MODEL_ID} prompt_type={PROMPT_TYPE} "
+    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE} stream={STREAM}",
     flush=True,
 )
 
-aggregates = []
 with httpx.Client(trust_env=False) as client:
-    for model in MODELS:
-        agg = run_model(client, url, headers, prompt, model, timer)
-        if agg is None:
-            raise RuntimeError(f"no timed trials completed for model {model}")
-        aggregates.append(agg)
+    print("warmup...", flush=True)
+    _ = one_trial(client, url, prompt)
+
+    trials = []
+    for i in range(NUM_TRIALS):
+        if timer.remaining() < 5:
+            print(f"time budget nearly exhausted after {i} trials; stopping early", flush=True)
+            break
+        t = one_trial(client, url, prompt)
+        if t["completion_tokens"] < MIN_COMPLETION_TOKENS:
+            raise RuntimeError(
+                f"trial {i + 1} produced only {t['completion_tokens']} completion tokens "
+                f"(< {MIN_COMPLETION_TOKENS}); invalid run"
+            )
+        print(
+            f"  trial {i + 1}: e2e={t['e2e_tok_s']:.2f} tok/s "
+            f"decode={t['decode_tok_s']:.2f} tok/s "
+            f"prefill={t['prefill_tok_s']:.1f} tok/s "
+            f"ttft={t['ttft_ms']:.0f}ms (content={t['ttft_content_ms']:.0f}ms) "
+            f"out={t['completion_tokens']} tok in={t['prompt_tokens']} tok "
+            f"(reasoning_chunks={t['reasoning_tokens_seen']}, content_chunks={t['content_tokens_seen']})",
+            flush=True,
+        )
+        trials.append(t)
+
+if not trials:
+    raise RuntimeError("no timed trials completed")
+
+agg = {
+    "e2e_tokens_per_second": trim_mean([t["e2e_tok_s"] for t in trials]),
+    "decode_tok_s": trim_mean([t["decode_tok_s"] for t in trials]),
+    "prefill_tok_s": trim_mean([t["prefill_tok_s"] for t in trials]),
+    "ttft_ms": trim_mean([t["ttft_ms"] for t in trials]),
+    "ttft_content_ms": trim_mean([t["ttft_content_ms"] for t in trials]),
+    "total_s_per_trial": trim_mean([t["total_s"] for t in trials]),
+    "prompt_tokens": trials[0]["prompt_tokens"],
+    "completion_tokens_avg": trim_mean([t["completion_tokens"] for t in trials]),
+    "reasoning_chunks_avg": trim_mean([t["reasoning_tokens_seen"] for t in trials]),
+    "content_chunks_avg": trim_mean([t["content_tokens_seen"] for t in trials]),
+    "trials_completed": len(trials),
+}
+
+# Merge any non-standard usage fields the server returned (averaged when numeric).
+extra_keys = set()
+for t in trials:
+    extra_keys.update(t["extra_usage"].keys())
+for k in extra_keys:
+    vals = [t["extra_usage"].get(k) for t in trials if k in t["extra_usage"]]
+    nums = [v for v in vals if isinstance(v, (int, float))]
+    if nums and len(nums) == len(vals):
+        agg[f"mlx_{k}"] = trim_mean(nums)
+    else:
+        agg[f"mlx_{k}"] = vals[-1]
 
 # ---------------------------------------------------------------------------
-# Results — one block per model. The agent parses these separately and writes
-# one row to results.tsv per model.
+# Results
 # ---------------------------------------------------------------------------
 
-for agg in aggregates:
-    print_results(**{
-        METRIC_NAME: agg["e2e_tok_s"],
-        "decode_tok_s": agg["decode_tok_s"],
-        "prefill_tok_s": agg["prefill_tok_s"],
-        "ttft_ms": agg["ttft_ms"],
-        "total_s_per_trial": agg["total_s_per_trial"],
-        "prompt_tokens": agg["prompt_tokens"],
-        "cached_prompt_tokens": agg["cached_prompt_tokens"],
-        "completion_tokens_avg": agg["completion_tokens_avg"],
-        "reasoning_tokens_avg": agg["reasoning_tokens_avg"],
-        "content_tokens_avg": agg["content_tokens_avg"],
-        "trials_completed": agg["trials_completed"],
-        "model": agg["model"],
-        "prompt_type": PROMPT_TYPE,
-        "max_tokens": MAX_TOKENS,
-    })
+print_results(**{
+    METRIC_NAME: agg["e2e_tokens_per_second"],
+    "decode_tok_s": agg["decode_tok_s"],
+    "prefill_tok_s": agg["prefill_tok_s"],
+    "ttft_ms": agg["ttft_ms"],
+    "ttft_content_ms": agg["ttft_content_ms"],
+    "total_s_per_trial": agg["total_s_per_trial"],
+    "prompt_tokens": agg["prompt_tokens"],
+    "completion_tokens_avg": agg["completion_tokens_avg"],
+    "reasoning_chunks_avg": agg["reasoning_chunks_avg"],
+    "content_chunks_avg": agg["content_chunks_avg"],
+    "trials_completed": agg["trials_completed"],
+    "model": MODEL_ID,
+    "prompt_type": PROMPT_TYPE,
+    "max_tokens": MAX_TOKENS,
+    "stream": STREAM,
+    **{k: v for k, v in agg.items() if k.startswith("mlx_")},
+})
 
-# Easy-to-grep summary: one RESULT line per model.
 print()
-for agg in aggregates:
-    print(f"RESULT model={agg['model']} {METRIC_NAME}={agg['e2e_tok_s']:.6f}")
-
+print(f"RESULT {METRIC_NAME}={agg['e2e_tokens_per_second']:.6f}")
 print(f"time_seconds: {timer.elapsed():.6f}")

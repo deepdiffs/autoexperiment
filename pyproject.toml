@@ -1,9 +1,10 @@
 [project]
 name = "autoexperiment"
 version = "0.1.0"
-description = "Autonomous experiment optimization template"
+description = "Autonomous experiment exploring config space for unsloth/Qwen3.6-35B-A3B-MLX-8bit served by mlx_lm.server"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",
+    "mlx-lm>=0.19",
 ]

@@ -3,31 +3,28 @@ Experiment harness — fixed configuration and utilities.
 The agent does NOT modify this file.
 
 Usage:
-    uv run harness.py    # verify connectivity and list available models
+    uv run harness.py    # verify the mlx_lm.server is up and the model is loaded
 """
 
 # ---------------------------------------------------------------------------
 # Configuration (customize these for your experiment)
 # ---------------------------------------------------------------------------
 
-METRIC_NAME = "tokens_per_second"   # end-to-end completion_tokens / total wall time
+METRIC_NAME = "e2e_tokens_per_second"   # completion_tokens / total wall time
 METRIC_GOAL = "maximize"
-TIME_BUDGET = 240                   # seconds per run (two models back-to-back per invocation)
+TIME_BUDGET = 120                       # seconds per invocation
 
-# Cap: experiment.py is invoked at most this many times. Each invocation tests
-# both models with the same config, so this yields MAX_RUNS data points per model.
+# Cap: experiment.py is invoked at most this many times.
 MAX_RUNS = 100
 
-# llama.cpp server (this Mac Studio). Override with LLAMA_BASE_URL if needed.
-LLAMA_BASE_URL_DEFAULT = "http://localhost:8080/v1"
+# mlx_lm.server (this Mac Studio). Default port is mlx_lm's own default (8000).
+# Override with MLX_BASE_URL if you start the server on another port.
+# Start the server manually in another terminal, e.g.:
+#   mlx_lm.server --model unsloth/Qwen3.6-35B-A3B-MLX-8bit --port 8000
+MLX_BASE_URL_DEFAULT = "http://localhost:8000/v1"
 
-# The two models compared head-to-head on every run. They must be loaded on the
-# llama.cpp server.
-# The full IDs as exposed by `GET /v1/models`. The BF16 weights are sharded
-# across two GGUF shards; llama.cpp only requires the first shard as the model
-# ID — it discovers the second shard on disk automatically.
-MODEL_QWEN_BF16 = "Qwen3.6-35B-A3B-BF16-00001-of-00002"
-MODEL_QWEN_Q8 = "Qwen3.6-35B-A3B-UD-Q8_K_XL"
+# The single MLX model under test.
+MODEL_ID = "unsloth/Qwen3.6-35B-A3B-MLX-8bit"
 
 # ---------------------------------------------------------------------------
 # Utilities (imported by experiment.py)
@@ -57,11 +54,11 @@ def print_results(**metrics):
     """Print results in the standard format for the agent to parse.
 
     Usage:
-        print_results(tokens_per_second=9.5, time_seconds=42.3)
+        print_results(e2e_tokens_per_second=12.3, time_seconds=42.3)
 
     Prints:
         ---
-        tokens_per_second: 9.500000
+        e2e_tokens_per_second: 12.300000
         time_seconds: 42.300000
     """
     print("---")
@@ -80,39 +77,57 @@ if __name__ == "__main__":
     import os
     import httpx
 
-    base_url = os.environ.get("LLAMA_BASE_URL", LLAMA_BASE_URL_DEFAULT)
+    base_url = os.environ.get("MLX_BASE_URL", MLX_BASE_URL_DEFAULT)
 
     print(f"Metric:      {METRIC_NAME} ({METRIC_GOAL})")
     print(f"Time budget: {TIME_BUDGET}s")
+    print(f"Max runs:    {MAX_RUNS}")
     print()
 
     print(f"Endpoint: {base_url}")
-    r = httpx.get(f"{base_url.rstrip('/')}/models", timeout=15)
-    r.raise_for_status()
+    try:
+        r = httpx.get(f"{base_url.rstrip('/')}/models", timeout=15)
+        r.raise_for_status()
+    except Exception as e:
+        print(f"  ERROR: cannot reach server: {e}")
+        print()
+        print("  Start it in another terminal with:")
+        print(f"    mlx_lm.server --model {MODEL_ID} --port 8000")
+        raise SystemExit(1)
+
     entries = r.json().get("data", [])
     models = sorted(m["id"] for m in entries)
-    # llama.cpp /v1/models also exposes load status under m["status"]["value"]
-    loaded = {m["id"] for m in entries if (m.get("status") or {}).get("value") == "loaded"}
     print(f"Models at endpoint ({len(models)}):")
     for m in models:
-        tag = "loaded" if m in loaded else "unloaded"
-        print(f"  - {m} [{tag}]")
+        print(f"  - {m}")
     print()
 
-    ok = True
-    for required in (MODEL_QWEN_BF16, MODEL_QWEN_Q8):
-        present = required in models
-        is_loaded = required in loaded
-        ok = ok and present
-        if present and is_loaded:
-            tag = "OK (loaded)"
-        elif present:
-            tag = "present but NOT loaded"
-        else:
-            tag = "MISSING"
-        print(f"  {required}: {tag}")
+    if MODEL_ID not in models:
+        # mlx_lm.server typically loads the model on first request, so missing
+        # from /v1/models is not necessarily fatal — but warn loudly.
+        print(f"  WARNING: {MODEL_ID} not listed at /v1/models.")
+        print("  mlx_lm.server may load it lazily on first /v1/chat/completions call.")
+        print("  Attempting a tiny chat completion to confirm...")
+    else:
+        print(f"  {MODEL_ID}: present")
 
-    if not ok:
+    # Smoke-test a tiny completion to confirm the model actually generates.
+    body = {
+        "model": MODEL_ID,
+        "messages": [{"role": "user", "content": "Say hi."}],
+        "max_tokens": 8,
+        "temperature": 0.0,
+        "stream": False,
+    }
+    try:
+        r = httpx.post(f"{base_url.rstrip('/')}/chat/completions", json=body, timeout=120)
+        r.raise_for_status()
+        resp = r.json()
+        usage = resp.get("usage") or {}
+        print()
+        print(f"  smoke test OK: completion_tokens={usage.get('completion_tokens')}")
+    except Exception as e:
+        print(f"  ERROR running smoke test: {e}")
         raise SystemExit(1)
 
     print()
