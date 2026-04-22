@@ -42,7 +42,7 @@ from harness import (
 # the whole point of this experiment is to run each config against both.
 MODELS = [MODEL_QWEN_BF16, MODEL_QWEN_Q8]
 
-PROMPT_TYPE = "summarization"   # baseline: summarization
+PROMPT_TYPE = "open_ended"      # baseline: open_ended
 MAX_TOKENS = 512                # generation length cap (total; includes reasoning)
 NUM_TRIALS = 5                  # timed trials per model (+ 1 untimed warmup)
 TEMPERATURE = 0.0
