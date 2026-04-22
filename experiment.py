@@ -2,15 +2,13 @@
 Experiment file — the agent modifies ONLY this file.
 Usage: uv run experiment.py
 
-Benchmark a single MLX-served Qwen model via mlx_lm.server's OpenAI-compatible
-HTTP endpoint (default: http://localhost:8000/v1).
+Benchmark two MLX-served Qwen models head-to-head via mlx_lm.server's
+OpenAI-compatible HTTP endpoint (default: http://localhost:8000/v1).
 
-Per invocation: 1 warmup + NUM_TRIALS timed trials of the same chat completion
-request. Aggregates and reports e2e tok/s (primary), TTFT, prefill tok/s, and
-decode tok/s, plus token counts.
-
-Each agent edit changes ONE config knob, then re-runs to log a single result
-block for the configured combination.
+Per invocation: the SAME config is run against MODEL_A and then MODEL_B.
+For each model: 1 warmup + NUM_TRIALS timed trials of the same chat completion.
+One result block and one RESULT line are printed per model. The agent logs
+two rows in results.tsv per invocation (one per model).
 """
 
 import json
@@ -24,7 +22,7 @@ from harness import (
     METRIC_NAME,
     TIME_BUDGET,
     MLX_BASE_URL_DEFAULT,
-    MODEL_ID,
+    MODEL_IDS,
     Timer,
     print_results,
 )
@@ -141,9 +139,9 @@ PROMPTS = {
 # HTTP trial
 # ---------------------------------------------------------------------------
 
-def build_body(prompt):
+def build_body(prompt, model_id):
     body = {
-        "model": MODEL_ID,
+        "model": model_id,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": MAX_TOKENS,
         "temperature": TEMPERATURE,
@@ -170,9 +168,9 @@ def build_body(prompt):
     return body
 
 
-def one_trial(client, url, prompt):
+def one_trial(client, url, prompt, model_id):
     """Run one chat completion and return timing + usage stats."""
-    body = build_body(prompt)
+    body = build_body(prompt, model_id)
 
     start = time.perf_counter()
     first_token_at = None       # any visible/reasoning token (TTFT)
@@ -291,35 +289,25 @@ def trim_mean(xs):
 
 
 # ---------------------------------------------------------------------------
-# Run
+# Per-model run
 # ---------------------------------------------------------------------------
 
-timer = Timer()
-
-base_url = os.environ.get("MLX_BASE_URL", MLX_BASE_URL_DEFAULT).rstrip("/")
-url = f"{base_url}/chat/completions"
-prompt = PROMPTS[PROMPT_TYPE]
-
-print(
-    f"config: model={MODEL_ID} prompt_type={PROMPT_TYPE} "
-    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE} stream={STREAM}",
-    flush=True,
-)
-
-with httpx.Client(trust_env=False) as client:
-    print("warmup...", flush=True)
-    _ = one_trial(client, url, prompt)
+def run_model(client, url, prompt, model_id, timer):
+    """Warmup + NUM_TRIALS on one model. Returns an agg dict or raises."""
+    print(f"--- model: {model_id} ---", flush=True)
+    print("  warmup...", flush=True)
+    _ = one_trial(client, url, prompt, model_id)
 
     trials = []
     for i in range(NUM_TRIALS):
         if timer.remaining() < 5:
-            print(f"time budget nearly exhausted after {i} trials; stopping early", flush=True)
+            print(f"  time budget nearly exhausted after {i} trials; stopping early", flush=True)
             break
-        t = one_trial(client, url, prompt)
+        t = one_trial(client, url, prompt, model_id)
         if t["completion_tokens"] < MIN_COMPLETION_TOKENS:
             raise RuntimeError(
-                f"trial {i + 1} produced only {t['completion_tokens']} completion tokens "
-                f"(< {MIN_COMPLETION_TOKENS}); invalid run"
+                f"{model_id} trial {i + 1} produced only {t['completion_tokens']} "
+                f"completion tokens (< {MIN_COMPLETION_TOKENS}); invalid run"
             )
         print(
             f"  trial {i + 1}: e2e={t['e2e_tok_s']:.2f} tok/s "
@@ -332,58 +320,88 @@ with httpx.Client(trust_env=False) as client:
         )
         trials.append(t)
 
-if not trials:
-    raise RuntimeError("no timed trials completed")
+    if not trials:
+        raise RuntimeError(f"{model_id}: no timed trials completed")
 
-agg = {
-    "e2e_tokens_per_second": trim_mean([t["e2e_tok_s"] for t in trials]),
-    "decode_tok_s": trim_mean([t["decode_tok_s"] for t in trials]),
-    "prefill_tok_s": trim_mean([t["prefill_tok_s"] for t in trials]),
-    "ttft_ms": trim_mean([t["ttft_ms"] for t in trials]),
-    "ttft_content_ms": trim_mean([t["ttft_content_ms"] for t in trials]),
-    "total_s_per_trial": trim_mean([t["total_s"] for t in trials]),
-    "prompt_tokens": trials[0]["prompt_tokens"],
-    "completion_tokens_avg": trim_mean([t["completion_tokens"] for t in trials]),
-    "reasoning_chunks_avg": trim_mean([t["reasoning_tokens_seen"] for t in trials]),
-    "content_chunks_avg": trim_mean([t["content_tokens_seen"] for t in trials]),
-    "trials_completed": len(trials),
-}
+    agg = {
+        "model": model_id,
+        "e2e_tokens_per_second": trim_mean([t["e2e_tok_s"] for t in trials]),
+        "decode_tok_s": trim_mean([t["decode_tok_s"] for t in trials]),
+        "prefill_tok_s": trim_mean([t["prefill_tok_s"] for t in trials]),
+        "ttft_ms": trim_mean([t["ttft_ms"] for t in trials]),
+        "ttft_content_ms": trim_mean([t["ttft_content_ms"] for t in trials]),
+        "total_s_per_trial": trim_mean([t["total_s"] for t in trials]),
+        "prompt_tokens": trials[0]["prompt_tokens"],
+        "completion_tokens_avg": trim_mean([t["completion_tokens"] for t in trials]),
+        "reasoning_chunks_avg": trim_mean([t["reasoning_tokens_seen"] for t in trials]),
+        "content_chunks_avg": trim_mean([t["content_tokens_seen"] for t in trials]),
+        "trials_completed": len(trials),
+    }
 
-# Merge any non-standard usage fields the server returned (averaged when numeric).
-extra_keys = set()
-for t in trials:
-    extra_keys.update(t["extra_usage"].keys())
-for k in extra_keys:
-    vals = [t["extra_usage"].get(k) for t in trials if k in t["extra_usage"]]
-    nums = [v for v in vals if isinstance(v, (int, float))]
-    if nums and len(nums) == len(vals):
-        agg[f"mlx_{k}"] = trim_mean(nums)
-    else:
-        agg[f"mlx_{k}"] = vals[-1]
+    # Merge any non-standard usage fields the server returned.
+    extra_keys = set()
+    for t in trials:
+        extra_keys.update(t["extra_usage"].keys())
+    for k in extra_keys:
+        vals = [t["extra_usage"].get(k) for t in trials if k in t["extra_usage"]]
+        nums = [v for v in vals if isinstance(v, (int, float))]
+        if nums and len(nums) == len(vals):
+            agg[f"mlx_{k}"] = trim_mean(nums)
+        else:
+            agg[f"mlx_{k}"] = vals[-1]
+
+    return agg
+
 
 # ---------------------------------------------------------------------------
-# Results
+# Run (head-to-head: same config applied to each model in MODEL_IDS)
 # ---------------------------------------------------------------------------
 
-print_results(**{
-    METRIC_NAME: agg["e2e_tokens_per_second"],
-    "decode_tok_s": agg["decode_tok_s"],
-    "prefill_tok_s": agg["prefill_tok_s"],
-    "ttft_ms": agg["ttft_ms"],
-    "ttft_content_ms": agg["ttft_content_ms"],
-    "total_s_per_trial": agg["total_s_per_trial"],
-    "prompt_tokens": agg["prompt_tokens"],
-    "completion_tokens_avg": agg["completion_tokens_avg"],
-    "reasoning_chunks_avg": agg["reasoning_chunks_avg"],
-    "content_chunks_avg": agg["content_chunks_avg"],
-    "trials_completed": agg["trials_completed"],
-    "model": MODEL_ID,
-    "prompt_type": PROMPT_TYPE,
-    "max_tokens": MAX_TOKENS,
-    "stream": STREAM,
-    **{k: v for k, v in agg.items() if k.startswith("mlx_")},
-})
+timer = Timer()
 
+base_url = os.environ.get("MLX_BASE_URL", MLX_BASE_URL_DEFAULT).rstrip("/")
+url = f"{base_url}/chat/completions"
+prompt = PROMPTS[PROMPT_TYPE]
+
+print(
+    f"config: models={list(MODEL_IDS)} prompt_type={PROMPT_TYPE} "
+    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE} stream={STREAM}",
+    flush=True,
+)
+
+aggregates = []
+with httpx.Client(trust_env=False) as client:
+    for model_id in MODEL_IDS:
+        agg = run_model(client, url, prompt, model_id, timer)
+        aggregates.append(agg)
+
+# ---------------------------------------------------------------------------
+# Results — one block per model. The agent parses these separately and writes
+# one row to results.tsv per model.
+# ---------------------------------------------------------------------------
+
+for agg in aggregates:
+    print_results(**{
+        METRIC_NAME: agg["e2e_tokens_per_second"],
+        "decode_tok_s": agg["decode_tok_s"],
+        "prefill_tok_s": agg["prefill_tok_s"],
+        "ttft_ms": agg["ttft_ms"],
+        "ttft_content_ms": agg["ttft_content_ms"],
+        "total_s_per_trial": agg["total_s_per_trial"],
+        "prompt_tokens": agg["prompt_tokens"],
+        "completion_tokens_avg": agg["completion_tokens_avg"],
+        "reasoning_chunks_avg": agg["reasoning_chunks_avg"],
+        "content_chunks_avg": agg["content_chunks_avg"],
+        "trials_completed": agg["trials_completed"],
+        "model": agg["model"],
+        "prompt_type": PROMPT_TYPE,
+        "max_tokens": MAX_TOKENS,
+        "stream": STREAM,
+        **{k: v for k, v in agg.items() if k.startswith("mlx_")},
+    })
+
+# Easy-to-grep summary: one RESULT line per model.
 print()
-print(f"RESULT {METRIC_NAME}={agg['e2e_tokens_per_second']:.6f}")
+for agg in aggregates:
+    print(f"RESULT model={agg['model']} {METRIC_NAME}={agg['e2e_tokens_per_second']:.6f}")
 print(f"time_seconds: {timer.elapsed():.6f}")

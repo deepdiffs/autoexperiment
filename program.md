@@ -1,30 +1,27 @@
-# autoexperiment — MLX Qwen3.6-35B-A3B-8bit throughput exploration
+# autoexperiment — MLX Qwen3.6 head-to-head throughput exploration
 
-Sweep generation configurations against a single MLX-served Qwen model and log throughput / latency metrics across the config space. The agent's job is to *characterize* how the model responds to different inputs and knobs — not to climb a single number. Every valid datapoint is a keep.
+Sweep generation configurations against **two** MLX-served Qwen models head-to-head and log throughput / latency metrics for each. The agent's job is to *characterize* how the two models respond to the same inputs and knobs — not to climb a single number. Every valid datapoint is a keep.
 
 ## Domain context
 
-You are benchmarking a single MLX model:
+You are benchmarking two MLX models head-to-head:
 
-- **Model**: `unsloth/Qwen3.6-35B-A3B-MLX-8bit` (8-bit MLX quantization of Qwen 3.6 35B-A3B reasoning model)
+- **Model A**: `unsloth/Qwen3.6-35B-A3B-MLX-8bit` — MoE, 35B total / ~3B active, 8-bit MLX.
+- **Model B**: `unsloth/Qwen3.6-27B-MLX-8bit` — dense 27B, 8-bit MLX.
 - **Serving**: `mlx_lm.server` running locally on this Mac Studio (Apple Silicon + Metal), exposing an OpenAI-compatible `/v1` API.
 - **Default endpoint**: `http://localhost:8000/v1`. Override with `MLX_BASE_URL`.
 
-The server is **already running**, started manually by the human in another terminal:
+Both models are pre-downloaded. `mlx_lm.server` swaps weights between models on demand — no restart needed — so each invocation runs the same config against Model A then Model B back-to-back.
 
-```
-mlx_lm.server --model unsloth/Qwen3.6-35B-A3B-MLX-8bit --port 8000
-```
+The server is **already running**, started manually by the human in another terminal. You interact with it exclusively via HTTP. You cannot restart it, change launch flags, or change server-side config — only the request body.
 
-You interact with it exclusively via HTTP. You cannot restart it, change launch flags, or change server-side config — only the request body.
-
-The model id is defined in `harness.py` as `MODEL_ID`; import and use that constant from `experiment.py` rather than hard-coding the string. Because the model stays loaded in the persistent server, there is no per-invocation load overhead — the warmup trial only needs to absorb prompt-cache priming, not weight loading.
+The model ids are defined in `harness.py` as `MODEL_A`, `MODEL_B`, and `MODEL_IDS` (the ordered tuple). Import `MODEL_IDS` from `experiment.py` and iterate over it — do not hard-code the strings.
 
 **Qwen 3.6 is a reasoning model.** mlx_lm.server (≥0.31) streams reasoning tokens under `delta.reasoning` and visible answer tokens under `delta.content`. `usage.completion_tokens` covers both. The harness counts a chunk in either field as a "token" for TTFT and decode-rate purposes, since the user feels reasoning streaming the same way they feel content streaming. `ttft_content_ms` is reported separately so you can see when the model finally exits the reasoning phase. At modest `max_tokens` (e.g. 512) on a "step by step" prompt, the model frequently never reaches `content` at all — that's normal; flag it in the description but don't treat it as a crash.
 
 ## Metrics
 
-Per invocation, `experiment.py` runs 1 warmup + `NUM_TRIALS` timed trials of the same chat completion and reports trim-mean aggregates:
+Per invocation, `experiment.py` runs 1 warmup + `NUM_TRIALS` timed trials **per model**, for both models, with the same config. It reports trim-mean aggregates per model (one block + one `RESULT` line per model):
 
 | metric | meaning | notes |
 |---|---|---|
@@ -67,7 +64,7 @@ Each experiment is run with: `uv run experiment.py`
 - Add additional request-body fields that mlx_lm.server accepts. Unknown fields are ignored gracefully; if they're recognized they take effect.
 
 **What you CANNOT do:**
-- Change `MODEL_ID` — the model is fixed at `unsloth/Qwen3.6-35B-A3B-MLX-8bit`.
+- Change `MODEL_A`, `MODEL_B`, or `MODEL_IDS` — the models are fixed in `harness.py`. Do not skip a model or reorder on a whim; the head-to-head comparability depends on running both every invocation.
 - Modify `harness.py` (read-only).
 - Install new packages or add dependencies. Only what's already in `pyproject.toml`.
 - Issue parallel/concurrent requests. Trials must be strictly sequential.
@@ -76,9 +73,9 @@ Each experiment is run with: `uv run experiment.py`
 - Return fewer than 50 completion tokens per trial. The experiment raises on this (invalid run → crash).
 - Skip the warmup trial — it absorbs prompt-cache priming and any first-call cost on this configuration.
 
-**The goal**: collect a matrix of (config) → throughput/latency measurements across a wide variety of configs, so the user can characterize how this model behaves under different inputs.
+**The goal**: collect a matrix of (config, model) → throughput/latency measurements across a wide variety of configs, so the user can characterize how each model behaves under different inputs and how the two compare side-by-side.
 
-**Hard cap**: stop after `MAX_RUNS` invocations of `experiment.py` (100). Check the count of unique commits in `results.tsv` (minus header) before each new run.
+**Hard cap**: stop after `MAX_RUNS` (100) invocations of `experiment.py`. Each invocation writes **2 rows** to `results.tsv` (one per model), so expect ~200 rows total. Check the count of **unique commits** in `results.tsv` (minus header) before each new run — that's the invocation count, not the row count.
 
 ## Baseline phase
 
@@ -112,7 +109,7 @@ Tag each baseline row's description clearly, e.g. `baseline qa`, `baseline summa
 - Non-chat endpoints (`/v1/completions`, `/v1/embeddings`, custom routes).
 - Any attempt to reconfigure or restart the server.
 - Obviously-bad knobs (e.g. `MAX_TOKENS` absurdly high, extreme temperatures) — don't burn budget confirming the obvious.
-- Changing `harness.py` or `MODEL_ID`, or adding dependencies.
+- Changing `harness.py`, `MODEL_A`/`MODEL_B`/`MODEL_IDS`, or adding dependencies.
 - `DRAFT_MODEL` unless the human has confirmed a draft model is available locally — it will likely 4xx if the draft isn't loadable.
 
 **Tips:**
@@ -122,32 +119,38 @@ Tag each baseline row's description clearly, e.g. `baseline qa`, `baseline summa
 
 ## Output format
 
-Each invocation emits one `---` block, one `RESULT` line, and one `time_seconds` line. Example:
+Each invocation emits **one `---` block per model**, then **one `RESULT` line per model**, then one `time_seconds` line. Example (abridged):
 
 ```
 ---
 e2e_tokens_per_second: 38.500000
 decode_tok_s: 41.200000
-prefill_tok_s: 312.500000
 ttft_ms: 248.000000
-total_s_per_trial: 13.300000
-prompt_tokens: 78
-completion_tokens_avg: 512.000000
-trials_completed: 5
 model: unsloth/Qwen3.6-35B-A3B-MLX-8bit
 prompt_type: qa
 max_tokens: 512
-stream: True
+...
+---
+e2e_tokens_per_second: 44.800000
+decode_tok_s: 46.100000
+ttft_ms: 212.000000
+model: unsloth/Qwen3.6-27B-MLX-8bit
+prompt_type: qa
+max_tokens: 512
+...
 
-RESULT e2e_tokens_per_second=38.500000
-time_seconds: 71.400000
+RESULT model=unsloth/Qwen3.6-35B-A3B-MLX-8bit e2e_tokens_per_second=38.500000
+RESULT model=unsloth/Qwen3.6-27B-MLX-8bit e2e_tokens_per_second=44.800000
+time_seconds: 148.700000
 ```
 
-Extract the metric with:
+Extract both metrics with:
 
 ```
 grep "^RESULT " run.log
 ```
+
+You should see exactly two `RESULT ` lines per successful invocation. If you see zero or one, the run is broken.
 
 ## Logging results
 
@@ -159,30 +162,36 @@ Header + 4 columns:
 commit	metric_value	status	description
 ```
 
-1. git commit hash (short, 7 chars).
-2. `e2e_tokens_per_second` value (0.000000 for crashes).
+1. git commit hash (short, 7 chars). **Same commit appears on both rows for a single invocation.**
+2. `e2e_tokens_per_second` value for that model (0.000000 for crashes).
 3. status: `keep` for any valid measurement, `crash` for failures. **Do not use `discard`** — exploration, not optimization.
-4. short text description capturing the variant, e.g. `baseline qa`, `max_tokens=1024 qa`, `stream=False qa`, `temp=0.7 top_p=0.9 open_ended`.
+4. short text description capturing **the model shortname AND the variant**, e.g. `35B-A3B baseline qa`, `27B baseline qa`, `35B-A3B max_tokens=1024 qa`. The model must be identifiable from the description (the TSV has no dedicated model column).
+
+**Every invocation produces 2 rows** — one per model — both sharing the same commit hash. Write them in the same order as `MODEL_IDS`. If one model crashes and the other succeeds, log both rows (one `crash`, one `keep`).
 
 Example:
 
 ```
 commit	metric_value	status	description
-a1b2c3d	38.500000	keep	baseline qa
-b2c3d4e	35.100000	keep	baseline summarization
-c3d4e5f	30.400000	keep	max_tokens=1024 qa
-d4e5f6g	0.000000	crash	bad request body, 400 from server
+a1b2c3d	38.500000	keep	35B-A3B baseline qa
+a1b2c3d	44.800000	keep	27B baseline qa
+b2c3d4e	35.100000	keep	35B-A3B baseline summarization
+b2c3d4e	41.900000	keep	27B baseline summarization
+c3d4e5f	30.400000	keep	35B-A3B max_tokens=1024 qa
+c3d4e5f	36.700000	keep	27B max_tokens=1024 qa
+d4e5f6g	0.000000	crash	35B-A3B bad request body, 400 from server
+d4e5f6g	0.000000	crash	27B bad request body, 400 from server
 ```
 
 ## Progress log (for human monitoring)
 
-Append one line per invocation to `progress.log` so the human can `tail -f progress.log` in another terminal:
+Append **one line per model per invocation** to `progress.log` (so 2 lines per invocation) so the human can `tail -f progress.log` in another terminal:
 
 ```
-[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> metric=<value> status=<keep|crash> | <description>
+[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> model=<shortname> metric=<value> status=<keep|crash> | <description>
 ```
 
-`run` increments once per row.
+`run` increments once per invocation (both model lines share the same `run=N`). Emit the Model A line, then the Model B line.
 
 Do **not** commit `progress.log` — keep it untracked like `results.tsv`. Append with `>>`, never rewrite.
 
@@ -193,19 +202,19 @@ The experiment runs on a dedicated branch (e.g. `autoexperiment/apr21-mlx-sweep`
 LOOP UNTIL `MAX_RUNS` (100) INVOCATIONS COMPLETED:
 
 1. Look at git state: the current branch/commit.
-2. Count invocations so far (unique commits in `results.tsv` minus header). If ≥ 100, stop.
+2. Count invocations so far (**unique commits** in `results.tsv` minus header — remember each invocation adds 2 rows with the same commit). If ≥ 100, stop.
 3. Modify `experiment.py` with one experimental idea (one knob change).
 4. `git commit`.
 5. Run: `uv run experiment.py > run.log 2>&1` (redirect everything — do NOT tee).
-6. Parse the result: `grep "^RESULT " run.log` yields one line. Extract `e2e_tokens_per_second`.
-7. If the `RESULT` line is missing → invocation crashed. `tail -n 50 run.log` for the trace. Trivial fix → fix and retry. Fundamentally broken → log `crash` and move on.
-8. Append one line to `progress.log` — see "Progress log" section.
-9. Append one line to `results.tsv` — see "Logging results" section.
+6. Parse the results: `grep "^RESULT " run.log` yields **two** lines (one per model). Extract `e2e_tokens_per_second` for each, keyed by `model=`.
+7. If fewer than 2 `RESULT` lines → one or both models crashed. `tail -n 80 run.log` for the trace. Trivial fix → fix and retry. Fundamentally broken → log `crash` rows for the affected model(s) and move on.
+8. Append **two lines** to `progress.log` (one per model) — see "Progress log" section.
+9. Append **two rows** to `results.tsv` (one per model, same commit) — see "Logging results" section.
 10. **Do NOT git-reset.** Every valid datapoint stays, regardless of whether the number went up or down vs. the previous run.
 
 **Never run trials in parallel** — always sequential.
 
-**Timeout**: each run ≈ `TIME_BUDGET` seconds (120s) + warmup overhead. If a run exceeds 2× budget, kill it and treat as failure.
+**Timeout**: each invocation ≈ `TIME_BUDGET` seconds (240s) for both models combined. If a run exceeds 2× budget, kill it and treat as failure.
 
 **Crashes**: trivial fixes → fix and re-run; fundamentally broken ideas → log `crash` and move on.
 
