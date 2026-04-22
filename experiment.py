@@ -46,7 +46,7 @@ STREAM = True
 # generate path. Set to None to omit the field.
 REPETITION_PENALTY = None        # e.g. 1.05
 REPETITION_CONTEXT_SIZE = None   # e.g. 20
-MIN_P = 0.0                     # Unsloth recommended for thinking mode
+MIN_P = 0.05                     # tests non-zero min_p filtering overhead
 MIN_TOKENS_TO_KEEP = None        # for sampling
 
 # Speculative decoding via a smaller draft model. Most mlx_lm.server versions
