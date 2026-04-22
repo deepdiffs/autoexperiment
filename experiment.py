@@ -36,7 +36,7 @@ from harness import (
 PROMPT_TYPE = "code_gen"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
-TEMPERATURE = 0.0
+TEMPERATURE = 0.6
 TOP_P = None
 TOP_K = None
 STREAM = True
