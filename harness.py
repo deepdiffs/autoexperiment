@@ -55,6 +55,77 @@ class Timer:
         return self.elapsed() >= self.budget
 
 
+# ---------------------------------------------------------------------------
+# Logging helpers — called by experiment.py when each model finishes its
+# trials, so results.tsv and progress.log populate in real time. Users can
+# `tail -f progress.log` or `tail -f results.tsv` during a run.
+# ---------------------------------------------------------------------------
+
+import os as _os
+import re as _re
+import subprocess as _subprocess
+import datetime as _datetime
+
+RESULTS_TSV = "results.tsv"
+PROGRESS_LOG = "progress.log"
+RESULTS_HEADER = "commit\tmodel\tmetric_value\tstatus\tdescription\n"
+
+
+def _current_commit():
+    """Short git commit hash at HEAD, or 'unknown' on failure."""
+    try:
+        r = _subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5, check=True,
+        )
+        return r.stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def _run_number(commit):
+    """Invocation counter. Distinct commits in progress.log => distinct runs.
+    The second model-row for a given commit reuses the run number from the first.
+    """
+    if not _os.path.exists(PROGRESS_LOG):
+        return 1
+    seen_order = []
+    with open(PROGRESS_LOG) as f:
+        for line in f:
+            m = _re.search(r"commit=(\S+)", line)
+            if m and m.group(1) not in seen_order:
+                seen_order.append(m.group(1))
+    if commit in seen_order:
+        return seen_order.index(commit) + 1
+    return len(seen_order) + 1
+
+
+def log_result(model_id, metric_value, status, description):
+    """Append one row to results.tsv (creating the header if the file is empty)."""
+    commit = _current_commit()
+    line = f"{commit}\t{model_id}\t{metric_value:.6f}\t{status}\t{description}\n"
+    needs_header = (
+        not _os.path.exists(RESULTS_TSV) or _os.path.getsize(RESULTS_TSV) == 0
+    )
+    with open(RESULTS_TSV, "a") as f:
+        if needs_header:
+            f.write(RESULTS_HEADER)
+        f.write(line)
+
+
+def log_progress(model_id, metric_value, status, description):
+    """Append one tail-friendly line to progress.log."""
+    commit = _current_commit()
+    run = _run_number(commit)
+    ts = _datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = (
+        f"[{ts}] run={run} commit={commit} model={model_id} "
+        f"metric={metric_value:.6f} status={status} | {description}\n"
+    )
+    with open(PROGRESS_LOG, "a") as f:
+        f.write(line)
+
+
 def print_results(**metrics):
     """Print results in the standard format for the agent to parse.
 

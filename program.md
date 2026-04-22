@@ -65,6 +65,7 @@ Each experiment is run with: `uv run experiment.py`
 
 **What you CANNOT do:**
 - Change `MODEL_A`, `MODEL_B`, or `MODEL_IDS` — the models are fixed in `harness.py`. Do not skip a model or reorder on a whim; the head-to-head comparability depends on running both every invocation.
+- **Disable thinking.** Qwen3's `enable_thinking` flag stays `True` (the default) for every run. Do NOT pass `chat_template_kwargs={"enable_thinking": False}`, do NOT inject `/no_think` into prompts, do NOT add a `THINKING` knob. Thinking-off would trivially win on throughput and isn't an interesting comparison axis for this experiment.
 - Modify `harness.py` (read-only).
 - Install new packages or add dependencies. Only what's already in `pyproject.toml`.
 - Issue parallel/concurrent requests. Trials must be strictly sequential.
@@ -90,6 +91,32 @@ Before exploring, establish **3 baseline invocations** — one per `PROMPT_TYPE`
 That's 3 invocations / 3 TSV rows, counting toward the 100-invocation cap.
 
 Tag each baseline row's description clearly, e.g. `baseline qa`, `baseline summarization`.
+
+## Reference: Unsloth's documented settings for Qwen 3.6
+
+Pulled from https://unsloth.ai/docs/models/qwen3.6. Treat these as *data points to test*, not gospel — this experiment is characterizing how the model actually behaves under `mlx_lm.server`, which may differ from the docs.
+
+**Recommended sampling (thinking mode enabled — which we are):**
+- *General tasks*: `temperature=1.0 top_p=0.95 top_k=20 min_p=0.0 presence_penalty=1.5`
+- *Precise coding*: `temperature=0.6 top_p=0.95 top_k=20 min_p=0.0 presence_penalty=0.0`
+- Repetition penalty: disabled or `1.0` (the default).
+
+The current `TEMPERATURE=0.0` baseline is deterministic (good for reproducible benchmarking) but NOT the recommended Qwen3.6 thinking-mode config. Worth a dedicated "recommended settings" sweep entry.
+
+**Context and output:**
+- Max context window: **262,144 tokens** (1M with YaRN). Far above anything we'd hit in these benchmarks.
+- Unsloth's recommended output length for real queries: **32,768 tokens**. Our `MAX_TOKENS` sweep should include at least one long-output run (e.g. 4096 or 8192) to see how decode throughput behaves under realistic output length — not just our current 512 ceiling.
+
+**Quant variants of interest (on disk, loadable by the server without restart):**
+- 35B-A3B: 3-bit, 4-bit, **8-bit (what we serve)**.
+- 27B: 4-bit, 6-bit, **8-bit (what we serve)**.
+
+We only benchmark the 8-bit variants here — that's fixed by `MODEL_IDS`. The others are for your information only.
+
+**Caveats:**
+- Unsloth flags that low context settings can produce gibberish. If the model emits nonsense in a run, that's a symptom, not a throughput metric — flag it in the description.
+- The docs mention `--cache-type-k bf16 --cache-type-v bf16` as a server-launch flag. That is NOT available to this experiment — we cannot restart the server or change its flags.
+- `presence_penalty` is an OpenAI-protocol field; mlx_lm.server may or may not pass it through to the sampler. If you try it and the metric changes meaningfully, that's a signal; if it doesn't, the server may be ignoring it.
 
 ## Strategy guidance (after baseline)
 
@@ -166,9 +193,11 @@ commit	model	metric_value	status	description
 2. full model id as served by mlx_lm (e.g. `unsloth/Qwen3.6-35B-A3B-MLX-8bit`). Must match exactly one of `MODEL_IDS`.
 3. `e2e_tokens_per_second` value for that model (0.000000 for crashes).
 4. status: `keep` for any valid measurement, `crash` for failures. **Do not use `discard`** — exploration, not optimization.
-5. description — a **complete snapshot of every tunable knob's value for this run**, in `key=value` form, space-separated. Always include: `prompt_type`, `max_tokens`, `num_trials`, `temperature`, `stream`. Include any other knob that is not `None`: `top_p`, `top_k`, `repetition_penalty`, `repetition_context_size`, `min_p`, `min_tokens_to_keep`, `draft_model`, `num_draft_tokens`. Prefix baseline rows with `baseline ` so they're easy to grep. Never use commas (they break TSV parsing downstream).
+5. description — a **complete snapshot of every tunable knob's value for this run**, in `key=value` form, space-separated. Always include: `prompt_type`, `max_tokens`, `num_trials`, `temperature`, `stream`. Include any other knob that is not `None`: `top_p`, `top_k`, `repetition_penalty`, `repetition_context_size`, `min_p`, `min_tokens_to_keep`, `draft_model`, `num_draft_tokens`. Never use commas (they break TSV parsing downstream).
 
-**Every invocation produces 2 rows** — one per model — both sharing the same commit hash and the same description (the config is identical across the two models). Write them in the same order as `MODEL_IDS`. If one model crashes and the other succeeds, log both rows (one `crash`, one `keep`).
+**`experiment.py` writes the rows for you.** As soon as each model's trials finish, `experiment.py` calls `log_result()` and `log_progress()` from `harness.py`, which append to `results.tsv` and `progress.log` in real time. The description string is auto-built from the knob values, so updating a knob in `experiment.py` automatically updates the logged description. The agent only needs to write rows manually for **crashes** — runs where `experiment.py` exited non-zero or produced fewer than 2 `RESULT` lines. In that case, append a `crash` row for each model that did not successfully log.
+
+**Every invocation produces 2 rows** — one per model — both sharing the same commit hash and the same description (the config is identical across the two models). Rows land in the same order as `MODEL_IDS`.
 
 **One-knob-per-run rule.** Each new commit must change **exactly one** knob vs. the previous commit (or vs. the baseline for the very first exploration step). The description columns across two consecutive invocations should differ in exactly one `key=value` pair. This makes every delta in the primary metric attributable to a single variable. If you want to change two things, do two separate commits and two separate invocations.
 
@@ -188,15 +217,17 @@ d4e5f6g	unsloth/Qwen3.6-27B-MLX-8bit	0.000000	crash	prompt_type=qa max_tokens=51
 
 ## Progress log (for human monitoring)
 
-Append **one line per model per invocation** to `progress.log` (so 2 lines per invocation) so the human can `tail -f progress.log` in another terminal:
+`experiment.py` appends **one line per model per invocation** to `progress.log` automatically (via `harness.log_progress()`). Format:
 
 ```
-[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> model=<shortname> metric=<value> status=<keep|crash> | <description>
+[YYYY-MM-DD HH:MM:SS] run=<n> commit=<short> model=<full-id> metric=<value> status=<keep|crash> | <description>
 ```
 
-`run` increments once per invocation (both model lines share the same `run=N`). Emit the Model A line, then the Model B line.
+`run` increments once per invocation. Both model lines share the same `run=N` — the helper derives N by counting distinct commit hashes already in `progress.log`, so the second model row automatically reuses the first's run number.
 
-Do **not** commit `progress.log` — keep it untracked like `results.tsv`. Append with `>>`, never rewrite.
+Human can `tail -f progress.log` in another terminal to watch results land as each model finishes its trials (~60s for Model A, ~200s for Model B at default settings).
+
+Do **not** commit `progress.log` — keep it untracked like `results.tsv`. Always append, never rewrite.
 
 ## The experiment loop
 
@@ -209,11 +240,9 @@ LOOP UNTIL `MAX_RUNS` (100) INVOCATIONS COMPLETED:
 3. Modify `experiment.py` with one experimental idea (one knob change).
 4. `git commit`.
 5. Run: `uv run experiment.py > run.log 2>&1` (redirect everything — do NOT tee).
-6. Parse the results: `grep "^RESULT " run.log` yields **two** lines (one per model). Extract `e2e_tokens_per_second` for each, keyed by `model=`.
-7. If fewer than 2 `RESULT` lines → one or both models crashed. `tail -n 80 run.log` for the trace. Trivial fix → fix and retry. Fundamentally broken → log `crash` rows for the affected model(s) and move on.
-8. Append **two lines** to `progress.log` (one per model) — see "Progress log" section.
-9. Append **two rows** to `results.tsv` (one per model, same commit) — see "Logging results" section.
-10. **Do NOT git-reset.** Every valid datapoint stays, regardless of whether the number went up or down vs. the previous run.
+6. Parse the results: `grep "^RESULT " run.log` should yield **two** lines (one per model). `experiment.py` has already appended the corresponding 2 rows to `results.tsv` and 2 lines to `progress.log` — you do NOT need to write those yourself for successful runs.
+7. If fewer than 2 `RESULT` lines → one or both models crashed. `tail -n 80 run.log` for the trace. Trivial fix → fix and retry. Fundamentally broken → for each model that did NOT successfully log, append a `crash` row manually to `results.tsv` and a `crash` line to `progress.log`, then move on.
+8. **Do NOT git-reset.** Every valid datapoint stays, regardless of whether the number went up or down vs. the previous run.
 
 **Never run trials in parallel** — always sequential.
 

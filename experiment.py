@@ -25,13 +25,15 @@ from harness import (
     MODEL_IDS,
     Timer,
     print_results,
+    log_result,
+    log_progress,
 )
 
 # ---------------------------------------------------------------------------
 # Configuration — the agent tunes these.
 # ---------------------------------------------------------------------------
 
-PROMPT_TYPE = "summarization"
+PROMPT_TYPE = "open_ended"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
@@ -363,17 +365,42 @@ base_url = os.environ.get("MLX_BASE_URL", MLX_BASE_URL_DEFAULT).rstrip("/")
 url = f"{base_url}/chat/completions"
 prompt = PROMPTS[PROMPT_TYPE]
 
-print(
-    f"config: models={list(MODEL_IDS)} prompt_type={PROMPT_TYPE} "
-    f"max_tokens={MAX_TOKENS} trials={NUM_TRIALS} temp={TEMPERATURE} stream={STREAM}",
-    flush=True,
-)
+# Build a config-snapshot description string used for BOTH rows of this
+# invocation. Lists every non-None knob; one-knob-per-run rule means adjacent
+# invocations' descriptions differ in exactly one key=value pair.
+description_parts = [
+    f"prompt_type={PROMPT_TYPE}",
+    f"max_tokens={MAX_TOKENS}",
+    f"num_trials={NUM_TRIALS}",
+    f"temperature={TEMPERATURE}",
+    f"stream={STREAM}",
+]
+for name, val in (
+    ("top_p", TOP_P),
+    ("top_k", TOP_K),
+    ("repetition_penalty", REPETITION_PENALTY),
+    ("repetition_context_size", REPETITION_CONTEXT_SIZE),
+    ("min_p", MIN_P),
+    ("min_tokens_to_keep", MIN_TOKENS_TO_KEEP),
+    ("draft_model", DRAFT_MODEL),
+    ("num_draft_tokens", NUM_DRAFT_TOKENS),
+):
+    if val is not None:
+        description_parts.append(f"{name}={val}")
+description = " ".join(description_parts)
+
+print(f"config: models={list(MODEL_IDS)} {description}", flush=True)
 
 aggregates = []
 with httpx.Client(trust_env=False) as client:
     for model_id in MODEL_IDS:
         agg = run_model(client, url, prompt, model_id, timer)
         aggregates.append(agg)
+        # Log to results.tsv + progress.log immediately so the human can
+        # tail -f the files during the run and see each model's results
+        # land as soon as its trials finish.
+        log_result(model_id, agg["e2e_tokens_per_second"], "keep", description)
+        log_progress(model_id, agg["e2e_tokens_per_second"], "keep", description)
 
 # ---------------------------------------------------------------------------
 # Results — one block per model. The agent parses these separately and writes
