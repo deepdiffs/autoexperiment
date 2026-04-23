@@ -345,14 +345,22 @@ print(
 )
 
 aggregates = []
+crashes = []
 with httpx.Client(trust_env=False) as client:
     for stream_mode in STREAM_MODES:
         for model in MODELS:
-            agg = run_model(client, url, headers, prompt, model, timer, stream_mode)
+            try:
+                agg = run_model(client, url, headers, prompt, model, timer, stream_mode)
+            except Exception as e:
+                label = f"{model}|{'stream' if stream_mode else 'nostream'}"
+                print(f"[{label}] CRASH: {type(e).__name__}: {e}", flush=True)
+                crashes.append((model, stream_mode, f"{type(e).__name__}: {e}"))
+                continue
             if agg is None:
-                raise RuntimeError(
-                    f"no timed trials completed for model {model} stream={stream_mode}"
-                )
+                label = f"{model}|{'stream' if stream_mode else 'nostream'}"
+                print(f"[{label}] CRASH: no timed trials completed", flush=True)
+                crashes.append((model, stream_mode, "no timed trials completed"))
+                continue
             aggregates.append(agg)
 
 # ---------------------------------------------------------------------------
@@ -387,5 +395,8 @@ print()
 for agg in aggregates:
     label = f"{agg['model']}|{'stream' if agg['stream'] else 'nostream'}"
     print(f"RESULT model={label} {METRIC_NAME}={agg['e2e_tok_s']:.6f}")
+for model, stream_mode, reason in crashes:
+    label = f"{model}|{'stream' if stream_mode else 'nostream'}"
+    print(f"CRASH model={label} reason={reason}")
 
 print(f"time_seconds: {timer.elapsed():.6f}")
