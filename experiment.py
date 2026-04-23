@@ -55,7 +55,7 @@ MODELS = [
     MODEL_35B_MLX,
 ]
 
-PROMPT_TYPE = "open_ended_long"
+PROMPT_TYPE = "multilingual_fr"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
