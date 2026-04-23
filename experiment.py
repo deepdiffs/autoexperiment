@@ -55,7 +55,7 @@ MODELS = [
     MODEL_35B_MLX,
 ]
 
-PROMPT_TYPE = "qa_short"
+PROMPT_TYPE = "qa_long"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
 TEMPERATURE = 0.0
