@@ -58,8 +58,8 @@ MODELS = [
 PROMPT_TYPE = "qa"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
-TEMPERATURE = 0.7
-TOP_K = 40
+TEMPERATURE = 0.0
+TOP_K = None
 
 # Observe BOTH streaming modes per invocation. Non-streaming measures only
 # end-to-end wall-clock throughput (ttft and decode_tok_s are unobservable and
