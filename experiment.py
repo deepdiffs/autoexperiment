@@ -55,10 +55,10 @@ MODELS = [
     MODEL_35B_MLX,
 ]
 
-PROMPT_TYPE = "multilingual_fr"
+PROMPT_TYPE = "qa"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
-TEMPERATURE = 0.0
+TEMPERATURE = 0.7
 TOP_K = None
 
 # Observe BOTH streaming modes per invocation. Non-streaming measures only
