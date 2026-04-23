@@ -58,7 +58,7 @@ MODELS = [
 PROMPT_TYPE = "qa"
 MAX_TOKENS = 512
 NUM_TRIALS = 5
-TEMPERATURE = 0.7
+TEMPERATURE = 1.0
 TOP_K = None
 
 # Observe BOTH streaming modes per invocation. Non-streaming measures only
