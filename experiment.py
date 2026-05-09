@@ -114,11 +114,11 @@ def main():
     # Baseline mini-sweep. llama-bench expands `-p A,B,C -n X,Y` into separate
     # tests; entries with n_prompt>0,n_gen=0 are prefill (pp), n_gen>0,n_prompt=0
     # are decode (tg). We probe a couple prefill lengths and a couple decode lengths.
-    p_values = [0, 512, 2048]
+    p_values = [0, 2048]
     n_values = [0, 128]
 
     try:
-        entries = run_llama_bench(p_values=p_values, n_values=n_values, reps=2)
+        entries = run_llama_bench(p_values=p_values, n_values=n_values, reps=3)
     except Exception as e:
         print(f"# llama-bench failed: {e}")
         entries = []
@@ -129,7 +129,9 @@ def main():
     for entry in entries:
         n_prompt = entry.get("n_prompt", 0)
         n_gen = entry.get("n_gen", 0)
-        tps = float(entry.get("avg_ts", 0.0))
+        # Best-of-reps tok/s — for roofline, peak achieved is more informative than avg.
+        samples = entry.get("samples_ts") or [entry.get("avg_ts", 0.0)]
+        tps = max(float(s) for s in samples)
         model_bytes = int(entry.get("model_size", model_size_bytes()))
         n_params = int(entry.get("model_n_params", N_PARAMS))
         if tps <= 0:
