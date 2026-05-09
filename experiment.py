@@ -9,6 +9,7 @@ land relative to the bandwidth roof and the compute roof.
 
 import json
 import shutil
+import statistics
 import subprocess
 from pathlib import Path
 
@@ -126,32 +127,41 @@ def main():
 
     points = []
     bw_utilizations = []
+    tg_median_pct = None
+    tg_stddev_pct = None
 
     for entry in entries:
         n_prompt = entry.get("n_prompt", 0)
         n_gen = entry.get("n_gen", 0)
-        # Best-of-reps tok/s — for roofline, peak achieved is more informative than avg.
-        samples = entry.get("samples_ts") or [entry.get("avg_ts", 0.0)]
-        tps = max(float(s) for s in samples)
+        samples = [float(s) for s in (entry.get("samples_ts") or [entry.get("avg_ts", 0.0)])]
+        tps_max = max(samples)
+        tps_median = statistics.median(samples)
+        tps_stddev = statistics.stdev(samples) if len(samples) >= 2 else 0.0
         model_bytes = int(entry.get("model_size", model_size_bytes()))
         n_params = int(entry.get("model_n_params", N_PARAMS))
-        if tps <= 0:
+        if tps_max <= 0:
             continue
 
         if n_gen > 0 and n_prompt == 0:
-            bw_pct = bw_utilization(tps, model_bytes, peak_bw)
+            bw_pct = bw_utilization(tps_max, model_bytes, peak_bw)
             bw_utilizations.append(bw_pct)
+            tg_median_pct = bw_utilization(tps_median, model_bytes, peak_bw)
+            tg_stddev_pct = bw_utilization(tps_stddev, model_bytes, peak_bw)
             ai = 2 / (model_bytes / n_params)  # ~2 FLOPs per weight read
-            gflops = tps * 2 * n_params / 1e9
-            label = f"tg{n_gen} ({tps:.1f} t/s, {bw_pct:.0f}%)"
+            gflops = tps_max * 2 * n_params / 1e9
+            label = f"tg{n_gen} ({tps_max:.1f} t/s, {bw_pct:.0f}%)"
             points.append({"ai": ai, "gflops": gflops, "label": label})
-            print(f"# tg n={n_gen:<5} {tps:7.2f} t/s -> {bw_pct:5.1f}% of measured peak BW")
+            print(
+                f"# tg n={n_gen:<5} max={tps_max:.2f} med={tps_median:.2f} "
+                f"sd={tps_stddev:.2f} t/s -> {bw_pct:.1f}% of measured peak BW "
+                f"(median: {tg_median_pct:.1f}%)"
+            )
         elif n_prompt > 0 and n_gen == 0:
             ai = n_prompt * 2  # AI grows ~linearly with prefill length
-            gflops = tps * 2 * n_params / 1e9
-            label = f"pp{n_prompt} ({tps:.0f} t/s)"
+            gflops = tps_max * 2 * n_params / 1e9
+            label = f"pp{n_prompt} ({tps_max:.0f} t/s)"
             points.append({"ai": ai, "gflops": gflops, "label": label})
-            print(f"# pp p={n_prompt:<5} {tps:7.2f} t/s")
+            print(f"# pp p={n_prompt:<5} max={tps_max:.2f} med={tps_median:.2f} t/s")
 
     plot_roofline(points, peak_bw, PEAK_BW_SPEC_GBS, PEAK_COMPUTE_TFLOPS, ROOFLINE_PNG)
     print(f"# wrote {ROOFLINE_PNG.name}")
@@ -162,6 +172,8 @@ def main():
     print_results(**{
         METRIC_NAME: best_bw_pct,
         "bw_pct_vs_spec": bw_pct_vs_spec,
+        "tg_median_pct": tg_median_pct or 0.0,
+        "tg_stddev_pct": tg_stddev_pct or 0.0,
         "peak_bw_measured_gbs": peak_bw,
         "n_points": len(points),
         "time_seconds": timer.elapsed(),
