@@ -20,32 +20,39 @@ import matplotlib.pyplot as plt
 
 from harness import (
     METRIC_NAME,
-    MODEL_PATH,
     PEAK_BW_SPEC_GBS,
     TIME_BUDGET,
     Timer,
     load_peak_bw,
-    model_size_bytes,
     print_results,
 )
 
 HERE = Path(__file__).resolve().parent
 ROOFLINE_PNG = HERE / "roofline.png"
 
+# Switch to the A3B MoE for this run (3B active of 35B total).
+# Override harness's MODEL_PATH locally; the harness is generic.
+MODEL_PATH = "/Users/jj/models/Qwen3.6-35B-A3B-UD-Q8_K_XL.gguf"
+TOTAL_PARAMS = 35e9
+ACTIVE_PARAMS = 3e9   # A3B = 3B active per token
+
 # Approx FLOPs ceiling for M3 Ultra Metal (32-core GPU, ~27 TFLOPS fp16).
-# Used only as the compute roof on the roofline plot, not the optimization metric.
 PEAK_COMPUTE_TFLOPS = 27.0
-N_PARAMS = 27e9  # Qwen3.6-27B
 
 
-def run_llama_bench(p_values, n_values, batch=2048, ubatch=512, ctk="f16", ctv="f16", fa=0, reps=2, poll=100):
+def model_size_bytes():
+    import os
+    return os.path.getsize(MODEL_PATH)
+
+
+def run_llama_bench(p_values, n_values, model_path=MODEL_PATH, batch=2048, ubatch=512, ctk="f16", ctv="f16", fa=0, reps=2, poll=100):
     """Invoke llama-bench once with comma-separated p/n sweeps; return parsed JSON results.
 
     --poll 100 = busy-wait for GPU completion (lowest dispatch latency).
     """
     cmd = [
         "llama-bench",
-        "-m", MODEL_PATH,
+        "-m", model_path,
         "-p", ",".join(str(p) for p in p_values),
         "-n", ",".join(str(n) for n in n_values),
         "-b", str(batch),
@@ -120,7 +127,7 @@ def plot_roofline(points, peak_bw_gbs, peak_bw_spec_gbs, peak_compute_tflops, ou
     ax.set_yscale("log")
     ax.set_xlabel("Arithmetic intensity (FLOPs/byte)")
     ax.set_ylabel("Performance (GFLOPS)")
-    ax.set_title("Qwen3.6-27B Q8 on M3 Ultra — Roofline")
+    ax.set_title("Qwen3.6-35B-A3B Q8 (MoE) on M3 Ultra — Roofline")
     ax.set_xlim(1e-3, 1e4)
     ax.set_ylim(1, compute_roof_gflops * 3)
     ax.grid(True, which="both", ls=":", alpha=0.4)
@@ -140,11 +147,15 @@ def main():
     # Baseline mini-sweep. llama-bench expands `-p A,B,C -n X,Y` into separate
     # tests; entries with n_prompt>0,n_gen=0 are prefill (pp), n_gen>0,n_prompt=0
     # are decode (tg). We probe a couple prefill lengths and a couple decode lengths.
+    # Shorter run: -r 2, keep one pp point for the compute-bound side of the roofline.
     p_values = [0, 2048]
     n_values = [0, 128]
 
+    print(f"# model: {MODEL_PATH}")
+    print(f"# total params: {TOTAL_PARAMS/1e9:.0f}B, active per token: {ACTIVE_PARAMS/1e9:.0f}B (MoE)")
+
     try:
-        entries = run_llama_bench(p_values=p_values, n_values=n_values, reps=3)
+        entries = run_llama_bench(p_values=p_values, n_values=n_values, reps=2)
     except Exception as e:
         print(f"# llama-bench failed: {e}")
         entries = []
@@ -162,27 +173,36 @@ def main():
         tps_median = statistics.median(samples)
         tps_stddev = statistics.stdev(samples) if len(samples) >= 2 else 0.0
         model_bytes = int(entry.get("model_size", model_size_bytes()))
-        n_params = int(entry.get("model_n_params", N_PARAMS))
+        n_params = int(entry.get("model_n_params", TOTAL_PARAMS))
         if tps_max <= 0:
             continue
 
+        # MoE-aware bytes-per-decode-token: only active experts + dense components are read.
+        # Approximate active read: ~15% dense (attn/embed/route) + active_frac × 85% (MoE FFN).
+        active_frac = ACTIVE_PARAMS / TOTAL_PARAMS
+        moe_read_frac = 0.15 + active_frac * 0.85
+        bytes_per_token_moe = model_bytes * moe_read_frac
+
         if n_gen > 0 and n_prompt == 0:
-            bw_pct = bw_utilization(tps_max, model_bytes, peak_bw)
-            bw_utilizations.append(bw_pct)
-            tg_median_pct = bw_utilization(tps_median, model_bytes, peak_bw)
-            tg_stddev_pct = bw_utilization(tps_stddev, model_bytes, peak_bw)
-            ai = 2 / (model_bytes / n_params)  # ~2 FLOPs per weight read
-            gflops = tps_max * 2 * n_params / 1e9
-            label = f"tg{n_gen} ({tps_max:.1f} t/s, {bw_pct:.0f}%)"
+            bw_pct_dense = bw_utilization(tps_max, model_bytes, peak_bw)
+            bw_pct_moe = bw_utilization(tps_max, bytes_per_token_moe, peak_bw)
+            # Use MoE-aware as the headline metric since it's physically honest.
+            bw_utilizations.append(bw_pct_moe)
+            tg_median_pct = bw_utilization(tps_median, bytes_per_token_moe, peak_bw)
+            tg_stddev_pct = bw_utilization(tps_stddev, bytes_per_token_moe, peak_bw)
+            # AI uses active params (FLOPs) over MoE-aware bytes
+            ai = 2 / (bytes_per_token_moe / ACTIVE_PARAMS)
+            gflops = tps_max * 2 * ACTIVE_PARAMS / 1e9
+            label = f"tg{n_gen} ({tps_max:.1f} t/s, {bw_pct_moe:.0f}% MoE / {bw_pct_dense:.0f}% dense)"
             points.append({"ai": ai, "gflops": gflops, "label": label})
             print(
                 f"# tg n={n_gen:<5} max={tps_max:.2f} med={tps_median:.2f} "
-                f"sd={tps_stddev:.2f} t/s -> {bw_pct:.1f}% of measured peak BW "
-                f"(median: {tg_median_pct:.1f}%)"
+                f"sd={tps_stddev:.2f} t/s -> "
+                f"BW% (MoE-aware): {bw_pct_moe:.1f}, BW% (dense-style): {bw_pct_dense:.1f}"
             )
         elif n_prompt > 0 and n_gen == 0:
             ai = n_prompt * 2  # AI grows ~linearly with prefill length
-            gflops = tps_max * 2 * n_params / 1e9
+            gflops = tps_max * 2 * ACTIVE_PARAMS / 1e9
             label = f"pp{n_prompt} ({tps_max:.0f} t/s)"
             points.append({"ai": ai, "gflops": gflops, "label": label})
             print(f"# pp p={n_prompt:<5} max={tps_max:.2f} med={tps_median:.2f} t/s")
