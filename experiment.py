@@ -72,25 +72,49 @@ def bw_utilization(tg_tokens_per_sec, model_bytes, peak_gbs):
 
 
 def plot_roofline(points, peak_bw_gbs, peak_bw_spec_gbs, peak_compute_tflops, out_path):
-    """Plot roofline: arithmetic intensity (x) vs achieved performance (y) in GFLOPS."""
-    fig, ax = plt.subplots(figsize=(8, 5.5))
+    """Plot roofline: arithmetic intensity (x) vs achieved performance (y) in GFLOPS.
 
-    ai = [10 ** (i / 4) for i in range(-8, 21)]  # 0.001 -> ~32k FLOPs/byte
-    bw_roof_gflops = [a * peak_bw_gbs for a in ai]
-    bw_roof_spec_gflops = [a * peak_bw_spec_gbs for a in ai]
+    The roofline is the *envelope* min(peak_BW * AI, peak_compute) — a rising
+    diagonal that flattens at the ridge point AI = peak_compute / peak_BW.
+    """
+    fig, ax = plt.subplots(figsize=(9, 6))
+
     compute_roof_gflops = peak_compute_tflops * 1000  # TFLOPS -> GFLOPS
+    ridge_ai_meas = compute_roof_gflops / peak_bw_gbs
+    ridge_ai_spec = compute_roof_gflops / peak_bw_spec_gbs
 
-    ax.plot(ai, bw_roof_gflops, "b-", lw=2, label=f"BW roof (measured: {peak_bw_gbs:.0f} GB/s)")
-    ax.plot(ai, bw_roof_spec_gflops, "b--", lw=1, alpha=0.5, label=f"BW roof (spec: {peak_bw_spec_gbs:.0f} GB/s)")
-    ax.axhline(compute_roof_gflops, color="r", lw=2, label=f"Compute roof ({peak_compute_tflops:.0f} TFLOPS)")
+    ai = [10 ** (i / 8) for i in range(-24, 41)]  # 0.001 .. ~32k FLOPs/byte (denser)
+    envelope_meas = [min(a * peak_bw_gbs, compute_roof_gflops) for a in ai]
+    envelope_spec = [min(a * peak_bw_spec_gbs, compute_roof_gflops) for a in ai]
+
+    ax.plot(ai, envelope_meas, "b-", lw=2.2,
+            label=f"Roofline (measured BW {peak_bw_gbs:.0f} GB/s, {peak_compute_tflops:.0f} TFLOPS)")
+    ax.plot(ai, envelope_spec, "b--", lw=1.2, alpha=0.45,
+            label=f"Roofline (spec BW {peak_bw_spec_gbs:.0f} GB/s)")
+
+    # Mark the ridge point (where memory-bound transitions to compute-bound)
+    ax.scatter([ridge_ai_meas], [compute_roof_gflops], marker="o",
+               s=40, facecolors="white", edgecolors="blue", zorder=4)
+    ax.annotate(f"ridge: AI = {ridge_ai_meas:.1f}",
+                (ridge_ai_meas, compute_roof_gflops),
+                textcoords="offset points", xytext=(8, -14),
+                fontsize=8, color="#1a4480")
+
+    # Shade memory-bound vs compute-bound regions for clarity
+    ax.axvspan(1e-3, ridge_ai_meas, alpha=0.05, color="orange")
+    ax.axvspan(ridge_ai_meas, 1e4, alpha=0.05, color="purple")
+    ax.text(ridge_ai_meas / 30, compute_roof_gflops * 0.55, "memory-bound",
+            fontsize=9, color="#995500", ha="center")
+    ax.text(ridge_ai_meas * 30, compute_roof_gflops * 0.55, "compute-bound",
+            fontsize=9, color="#553388", ha="center")
 
     if points:
         xs = [p["ai"] for p in points]
         ys = [p["gflops"] for p in points]
         labels = [p["label"] for p in points]
-        ax.scatter(xs, ys, s=80, c="green", edgecolors="black", zorder=5)
+        ax.scatter(xs, ys, s=90, c="green", edgecolors="black", zorder=5)
         for x, y, lbl in zip(xs, ys, labels):
-            ax.annotate(lbl, (x, y), textcoords="offset points", xytext=(6, 6), fontsize=8)
+            ax.annotate(lbl, (x, y), textcoords="offset points", xytext=(8, 8), fontsize=8)
 
     ax.set_xscale("log")
     ax.set_yscale("log")
@@ -98,7 +122,7 @@ def plot_roofline(points, peak_bw_gbs, peak_bw_spec_gbs, peak_compute_tflops, ou
     ax.set_ylabel("Performance (GFLOPS)")
     ax.set_title("Qwen3.6-27B Q8 on M3 Ultra — Roofline")
     ax.set_xlim(1e-3, 1e4)
-    ax.set_ylim(1, max(compute_roof_gflops, max(ys) if points else 1) * 2)
+    ax.set_ylim(1, compute_roof_gflops * 3)
     ax.grid(True, which="both", ls=":", alpha=0.4)
     ax.legend(loc="lower right", fontsize=9)
     fig.tight_layout()
