@@ -37,10 +37,10 @@ PEAK_COMPUTE_TFLOPS = 27.0
 N_PARAMS = 27e9  # Qwen3.6-27B
 
 
-def run_llama_bench(p_values, n_values, batch=2048, ubatch=512, ctk="f16", ctv="f16", fa=0, reps=2):
+def run_llama_bench(p_values, n_values, batch=2048, ubatch=512, ctk="f16", ctv="f16", fa=0, reps=2, poll=100):
     """Invoke llama-bench once with comma-separated p/n sweeps; return parsed JSON results.
 
-    Loading the GGUF takes ~25s, so we batch all configs into one process.
+    --poll 100 = busy-wait for GPU completion (lowest dispatch latency).
     """
     cmd = [
         "llama-bench",
@@ -53,6 +53,7 @@ def run_llama_bench(p_values, n_values, batch=2048, ubatch=512, ctk="f16", ctv="
         "-ctv", ctv,
         "-fa", str(fa),
         "-r", str(reps),
+        "--poll", str(poll),
         "-o", "json",
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
