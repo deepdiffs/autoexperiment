@@ -16,3 +16,7 @@ AGENTS.md
 # results.tsv and progress.log are untracked during the experiment loop but
 # committed as reference artifacts when a run concludes (see `viz.py`).
 run.log
+
+# Roofline experiment artifacts — machine-specific or regenerated each run.
+peak_bw.json
+roofline.png
