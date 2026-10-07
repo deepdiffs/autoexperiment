@@ -16,3 +16,6 @@ AGENTS.md
 results.tsv
 run.log
 progress.log
+
+# node
+node_modules/
